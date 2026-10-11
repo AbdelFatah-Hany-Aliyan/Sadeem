@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #fdfdfc;
+    --foreground: #09090b;
+    --border: #e4e4e7;
+    --accent: #f4f4f5;
+    --surface: #ffffff;
+    --surface-hover: #f4f4f5;
+    --muted: #71717a;
+  }
+
+  .dark {
+    --background: #050505;
+    --foreground: #ffffff;
+    --border: rgba(255, 255, 255, 0.05);
+    --accent: rgba(255, 255, 255, 0.1);
+    --surface: #0a0a0a;
+    --surface-hover: rgba(255, 255, 255, 0.03);
+    --muted: rgba(255, 255, 255, 0.5);
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground transition-colors duration-300;
+    font-family: var(--font-sans), var(--font-arabic), sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom Selection */
+::selection {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Utility for text balance */
+.text-balance {
+  text-wrap: balance;
+}
+
+.glass-panel {
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
