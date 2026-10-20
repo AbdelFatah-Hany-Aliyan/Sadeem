@@ -20,9 +20,33 @@ export const en = {
     contact: "Contact",
   },
   hero: {
+    tagline: "TECHNOLOGY & VENTURE STUDIO",
     line1: "We build systems.",
     line2: "We turn ideas into companies.",
-    desc: "Sadeem builds custom business systems, digital products, and new ventures from idea to launch.",
+    desc: "Sadeem creates custom high-performance digital systems for ambitious organizations while validating, engineering, and launching proprietary technology ventures.",
+    signatureLabel: "SIGNATURE ENGINE VISUAL",
+    kineticPhases: [
+      {
+        num: "01",
+        title: "Idea & Spark",
+        desc: "Raw insight, operational challenge, and exploratory hypothesis.",
+      },
+      {
+        num: "02",
+        title: "Structure & Architecture",
+        desc: "Mathematical geometry, data schemas, and vector blueprints.",
+      },
+      {
+        num: "03",
+        title: "System & Engineering",
+        desc: "Robust software engines, distributed protocols, and resilience.",
+      },
+      {
+        num: "04",
+        title: "Product & Venture",
+        desc: "Living digital entity, customer adoption, and enterprise scale.",
+      },
+    ],
   },
   whatWeBuild: {
     label: "Capabilities",
@@ -38,6 +62,11 @@ export const en = {
     label: "The Dual Engine",
     title: "A sustainable model for continuous building.",
     desc: "Client work generates resources, workflows, and reusable technology. These resources empower us to develop our own products and ventures, which in turn build assets, credibility, and future growth.",
+    synergyTitle: "The Sustainable Flywheel",
+    synergyDesc: "Systems build cash flow and robust modular technology; Ventures convert that technology into compounding equity and market reputation.",
+    tabSystems: "Systems",
+    tabSynergy: "Synergy Loop",
+    tabVentures: "Ventures",
     engine1: {
       tag: "ENG:01",
       title: "SADEEM SYSTEMS",
@@ -79,6 +108,9 @@ export const en = {
   work: {
     label: "Our Work",
     title: "Proof of execution.",
+    subtitle: "Real systems and proprietary ventures developed by Sadeem.",
+    metricLabel: "Key Milestone",
+    techLabel: "Tech Stack",
   },
   about: {
     quote1: "We don't just develop software.",

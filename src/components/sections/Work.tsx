@@ -3,78 +3,169 @@
 import { motion } from "framer-motion";
 import { projects } from "@/data/projects";
 import { useLanguage } from "@/providers/LanguageProvider";
+import { 
+  Smartphone, 
+  Layers, 
+  ShoppingBag, 
+  GraduationCap, 
+  ArrowUpRight,
+  Cpu
+} from "lucide-react";
+
+// Map project IDs to relevant semantic icons for vector illustrations
+const iconMap: Record<string, React.ElementType> = {
+  "cucu-leaf-scan": Smartphone,
+  "wesal": Layers,
+  "tabadul": ShoppingBag,
+  "lama-school": GraduationCap,
+};
 
 export default function Work() {
   const { t, language } = useLanguage();
+  const isRtl = language === "ar";
   
   return (
-    <section id="work" className="py-32 bg-background relative">
-      <div className="container mx-auto px-6 md:px-12">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-24 gap-8">
-          <div>
-            <h2 className="text-sm font-medium tracking-widest text-muted uppercase mb-4">{t.work.label}</h2>
-            <h3 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
+    <section id="work" className="py-28 bg-background border-t border-border relative overflow-hidden">
+      {/* Background Ambience */}
+      <div className="absolute top-1/4 right-0 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[160px] pointer-events-none" />
+
+      <div className="container mx-auto px-6 md:px-12 relative z-10">
+        
+        {/* Section Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-20 gap-6">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-accent/30 bg-accent/10 text-xs font-mono text-accent uppercase tracking-widest mb-4">
+              {t.work.label}
+            </div>
+            <h3 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground mb-4">
               {t.work.title}
             </h3>
+            <p className="text-muted text-sm md:text-base leading-relaxed">
+              {t.work.subtitle || "Real systems and proprietary ventures developed by Sadeem."}
+            </p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-32">
-          {projects.map((project) => (
-            <motion.div
-              key={project.id}
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-              className="group flex flex-col md:flex-row gap-12 md:gap-24"
-            >
-              {/* Visual Placeholder for Project Image */}
-              <div className="w-full md:w-3/5 aspect-[4/3] bg-foreground/[0.02] border border-border relative overflow-hidden group-hover:border-foreground/10 transition-colors duration-500">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-foreground/10 font-bold text-4xl md:text-7xl tracking-tighter mix-blend-overlay">
-                    {project.name.toUpperCase()}
-                  </div>
-                </div>
-                {/* Abstract shape representing the project */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1/2 h-1/2 bg-foreground/5 blur-3xl rounded-full group-hover:bg-foreground/10 transition-colors duration-1000" />
-              </div>
+        {/* 4 Projects Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          {projects.map((project, idx) => {
+            const IconComponent = iconMap[project.id] || Cpu;
+            const statusColor = project.statusColor || (project.status === "MVP" ? "#6C8B80" : "#C28E62");
+            const isTabadul = project.id === "tabadul";
 
-              {/* Project Info */}
-              <div className="w-full md:w-2/5 flex flex-col justify-center">
-                <div className="flex items-center gap-4 mb-6">
-                  <span className="px-3 py-1 text-xs font-mono border border-border text-foreground/50 rounded-full">
-                    {language === "en" ? project.status : project.arabicStatus}
-                  </span>
-                  <span className="text-xs font-medium text-muted uppercase tracking-wider">
-                    {language === "en" ? project.category : project.arabicCategory}
-                  </span>
+            return (
+              <motion.div
+                key={project.id}
+                initial={{ opacity: 0, y: 35 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-60px" }}
+                transition={{ duration: 0.7, delay: idx * 0.12, ease: [0.22, 1, 0.36, 1] }}
+                whileHover={{ y: -6 }}
+                className="group rounded-2xl border border-border bg-surface/90 backdrop-blur-md p-8 sm:p-10 relative overflow-hidden transition-all duration-300 hover:border-accent/50 hover:shadow-[0_15px_35px_rgba(194,142,98,0.12)] flex flex-col justify-between"
+              >
+                {/* Subtle top metallic accent line */}
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                <div>
+                  {/* Top Bar: Ownership & Live Status Pill */}
+                  <div className="flex items-center justify-between gap-4 mb-8">
+                    <span className="text-xs font-mono font-medium tracking-wider text-muted uppercase">
+                      {language === "en" ? project.ownership : project.arabicOwnership}
+                    </span>
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-background/60">
+                      <span 
+                        className="w-2 h-2 rounded-full animate-ping" 
+                        style={{ backgroundColor: statusColor }} 
+                      />
+                      <span 
+                        className="text-[11px] font-mono font-bold" 
+                        style={{ color: statusColor }}
+                      >
+                        {language === "en" ? project.status : project.arabicStatus}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Illustrative Branded Abstract Graphic Header */}
+                  <div className="relative aspect-[16/9] w-full rounded-xl bg-background/60 border border-border flex items-center justify-center overflow-hidden mb-8 group-hover:border-accent/30 transition-colors">
+                    {/* Architectural Coordinate Pattern */}
+                    <div className="absolute inset-0 bg-[linear-gradient(rgba(194,142,98,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(82,124,145,0.06)_1px,transparent_1px)] bg-[size:24px_24px]" />
+                    
+                    {/* Glowing Core Visual Icon */}
+                    <div className="relative z-10 flex flex-col items-center justify-center p-6 text-center">
+                      <div 
+                        className="w-16 h-16 rounded-2xl border border-border bg-surface flex items-center justify-center text-accent mb-3 shadow-md group-hover:scale-110 transition-transform duration-500"
+                        style={{ color: statusColor }}
+                      >
+                        <IconComponent size={32} />
+                      </div>
+                      <div className="text-xs font-mono uppercase tracking-widest text-muted">
+                        {language === "en" ? project.category : project.arabicCategory}
+                      </div>
+                    </div>
+
+                    {/* Corner Coordinate Badges */}
+                    <div className="absolute top-3 left-3 text-[10px] font-mono text-muted/50">
+                      0{idx + 1} • SYS-ARCH
+                    </div>
+                    <div className="absolute bottom-3 right-3 text-[10px] font-mono text-muted/50">
+                      EST. {project.year}
+                    </div>
+                  </div>
+
+                  {/* Title & Tagline */}
+                  <div className="mb-4">
+                    <h4 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 group-hover:text-accent transition-colors flex items-center justify-between">
+                      <span>{language === "en" ? project.name : (project.arabicName || project.name)}</span>
+                      <ArrowUpRight size={20} className="text-muted group-hover:text-accent transition-colors" />
+                    </h4>
+                    <p className="text-xs sm:text-sm font-medium text-accent">
+                      {language === "en" ? project.tagline : project.arabicTagline}
+                    </p>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-muted text-sm leading-relaxed mb-6">
+                    {language === "en" ? project.longDescription : project.arabicLongDescription}
+                  </p>
+
+                  {/* Partnership Clarification Note for Tabadul */}
+                  {isTabadul && (
+                    <div className="mb-6 p-3 rounded-lg border border-steel/30 bg-steel/10 text-xs font-mono text-steel">
+                      {language === "en" 
+                        ? "Note: Collaborative ecosystem initiative. Strategic partnership terms are currently in active discussion."
+                        : "ملاحظة: مبادرة تجارية تشاركية. شروط الشراكة الاستراتيجية قيد المناقشة والمفاضلة حالياً."}
+                    </div>
+                  )}
                 </div>
-                
-                <h4 className="text-4xl md:text-5xl font-bold text-foreground mb-2 flex items-center gap-4">
-                  {language === "en" ? project.name : (project.arabicName || project.name)}
-                </h4>
-                
-                <p className="text-xl text-foreground/70 mb-8 font-medium">
-                  {language === "en" ? project.shortDescription : project.arabicShortDescription}
-                </p>
-                
-                <p className="text-foreground/40 mb-12 leading-relaxed">
-                  {language === "en" ? project.longDescription : project.arabicLongDescription}
-                </p>
-                
-                <div className="mt-auto">
-                  <div className="flex flex-wrap gap-2 mb-8">
-                    {project.technologies.map(tech => (
-                      <span key={tech} className="text-xs text-foreground/40 bg-foreground/[0.03] px-3 py-1 border border-border">
+
+                <div>
+                  {/* Milestone Indicator */}
+                  {project.metric && (
+                    <div className="p-3.5 rounded-lg bg-background/50 border border-border text-xs font-mono mb-6 flex items-center justify-between">
+                      <span className="text-muted">{t.work.metricLabel || "Milestone"}:</span>
+                      <span className="text-accent font-semibold">
+                        {language === "en" ? project.metric.en : project.metric.ar}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Technology Pills */}
+                  <div className="pt-4 border-t border-border/80 flex flex-wrap gap-2">
+                    {project.technologies.map((tech) => (
+                      <span 
+                        key={tech} 
+                        className="text-xs font-mono px-2.5 py-1 rounded border border-border bg-background/40 text-muted"
+                      >
                         {tech}
                       </span>
                     ))}
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </section>

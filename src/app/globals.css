@@ -4,29 +4,39 @@
 
 @layer base {
   :root {
-    --background: #fdfdfc;
-    --foreground: #09090b;
-    --border: #e4e4e7;
-    --accent: #f4f4f5;
-    --surface: #ffffff;
-    --surface-hover: #f4f4f5;
-    --muted: #71717a;
+    --background: #F6F3EB;
+    --foreground: #0B1220;
+    --border: rgba(11, 18, 32, 0.12);
+    --border-subtle: rgba(82, 124, 145, 0.16);
+    --accent: #C28E62;
+    --accent-hover: #AB784E;
+    --accent-muted: rgba(194, 142, 98, 0.12);
+    --surface: #FFFFFF;
+    --surface-hover: #EDE8DC;
+    --muted: #527C91;
+    --steel: #527C91;
+    --sage: #6C8B80;
   }
 
   .dark {
-    --background: #050505;
-    --foreground: #ffffff;
-    --border: rgba(255, 255, 255, 0.05);
-    --accent: rgba(255, 255, 255, 0.1);
-    --surface: #0a0a0a;
-    --surface-hover: rgba(255, 255, 255, 0.03);
-    --muted: rgba(255, 255, 255, 0.5);
+    --background: #0B1220;
+    --foreground: #F6F3EB;
+    --border: rgba(194, 142, 98, 0.2);
+    --border-subtle: rgba(82, 124, 145, 0.22);
+    --accent: #C28E62;
+    --accent-hover: #D69F72;
+    --accent-muted: rgba(194, 142, 98, 0.18);
+    --surface: #111A2E;
+    --surface-hover: #17233D;
+    --muted: #8BA3B3;
+    --steel: #527C91;
+    --sage: #6C8B80;
   }
 }
 
 @layer base {
   body {
-    @apply bg-background text-foreground transition-colors duration-300;
+    @apply bg-background text-foreground transition-colors duration-500;
     font-family: var(--font-sans), var(--font-arabic), sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -35,8 +45,8 @@
 
 /* Custom Selection */
 ::selection {
-  background: var(--foreground);
-  color: var(--background);
+  background: var(--accent);
+  color: #0B1220;
 }
 
 /* Smooth Scrolling */
@@ -51,9 +61,17 @@ html {
 
 .glass-panel {
   background: var(--surface);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
+}
+
+.glow-copper {
+  box-shadow: 0 0 30px -5px rgba(194, 142, 98, 0.25);
+}
+
+.glow-steel {
+  box-shadow: 0 0 30px -5px rgba(82, 124, 145, 0.25);
 }
 
 .hide-scrollbar::-webkit-scrollbar {

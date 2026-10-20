@@ -4,40 +4,51 @@ import { motion } from "framer-motion";
 import { useLanguage } from "@/providers/LanguageProvider";
 
 export default function HowWeWork() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isRtl = language === "ar";
   
   return (
-    <section className="py-32 bg-accent border-t border-border relative">
-      <div className="container mx-auto px-6 md:px-12">
-        <div className="mb-24">
-          <h2 className="text-sm font-medium tracking-widest text-muted uppercase mb-4">{t.howWeWork.label}</h2>
+    <section className="py-28 bg-background border-t border-border relative overflow-hidden">
+      <div className="container mx-auto px-6 md:px-12 relative z-10">
+        <div className="mb-20 max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-steel/30 bg-steel/10 text-xs font-mono text-steel uppercase tracking-widest mb-4">
+            {t.howWeWork.label}
+          </div>
           <h3 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
             {t.howWeWork.title}
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative">
           {t.howWeWork.items.map((step, i, arr) => (
             <motion.div
               key={step.num}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 25 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.6, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }}
-              className="relative pr-8 rtl:pr-0 rtl:pl-8"
+              whileHover={{ y: -4 }}
+              className="p-8 rounded-2xl border border-border bg-surface/80 backdrop-blur-md relative overflow-hidden transition-all duration-300 hover:border-accent/40 flex flex-col justify-between group"
             >
-              {/* Connector line for desktop */}
-              {i < arr.length - 1 && (
-                <div className="hidden md:block absolute top-6 right-0 rtl:right-auto rtl:left-0 w-[calc(100%-2rem)] h-[1px] bg-foreground/10 translate-x-[2rem] rtl:-translate-x-[2rem]" />
-              )}
-              
-              <div className="text-xs font-mono text-muted mb-8 w-12 h-12 rounded-full border border-border flex items-center justify-center bg-background relative z-10">
-                {step.num}
+              <div>
+                {/* Step Circle with Accent Border */}
+                <div className="w-12 h-12 rounded-xl border border-border bg-background flex items-center justify-center text-xs font-mono font-bold text-accent mb-8 group-hover:border-accent group-hover:scale-110 transition-all shadow-sm">
+                  {step.num}
+                </div>
+
+                <h4 className="text-xl font-bold text-foreground mb-3 group-hover:text-accent transition-colors">
+                  {step.title}
+                </h4>
+
+                <p className="text-muted text-sm leading-relaxed">
+                  {step.desc}
+                </p>
               </div>
-              <h4 className="text-xl font-bold text-foreground mb-4">{step.title}</h4>
-              <p className="text-foreground/50 text-sm leading-relaxed">
-                {step.desc}
-              </p>
+
+              <div className="mt-8 pt-4 border-t border-border/50 text-[11px] font-mono text-muted/60 flex items-center justify-between">
+                <span>PHASE 0{i + 1}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-accent/40 group-hover:bg-accent transition-colors" />
+              </div>
             </motion.div>
           ))}
         </div>
