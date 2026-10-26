@@ -7,15 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "framer-motion": "^11.2.0",
+    "jose": "^6.2.13",
     "lucide-react": "^0.378.0",
     "next": "14.2.3",
     "next-themes": "^0.4.6",
@@ -24,6 +27,7 @@
     "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
