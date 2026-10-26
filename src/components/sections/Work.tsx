@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { projects as staticProjects, Project } from "@/data/projects";
 import { ProjectDTO } from "@/lib/types/portfolio";
 import { useLanguage } from "@/providers/LanguageProvider";
@@ -15,6 +16,7 @@ import {
 
 interface WorkProps {
   initialProjects?: (ProjectDTO | Project)[];
+  hrefPrefix?: string;
 }
 
 /**
@@ -28,7 +30,7 @@ function resolveProjectIcon(project: ProjectDTO | Project): React.ElementType {
   return Cpu;
 }
 
-export default function Work({ initialProjects }: WorkProps) {
+export default function Work({ initialProjects, hrefPrefix = "/work" }: WorkProps) {
   const { t, language } = useLanguage();
   
   // Use server-provided database projects if available, otherwise safely fallback to static baseline
@@ -124,10 +126,12 @@ export default function Work({ initialProjects }: WorkProps) {
 
                   {/* Title & Tagline */}
                   <div className="mb-4">
-                    <h4 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 group-hover:text-accent transition-colors flex items-center justify-between">
-                      <span>{language === "en" ? project.name : (project.arabicName || project.name)}</span>
-                      <ArrowUpRight size={20} className="text-muted group-hover:text-accent transition-colors" />
-                    </h4>
+                    <Link href={`${hrefPrefix}/${project.slug || project.id}`} className="block group/link">
+                      <h4 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 group-hover/link:text-accent transition-colors flex items-center justify-between">
+                        <span>{language === "en" ? project.name : (project.arabicName || project.name)}</span>
+                        <ArrowUpRight size={20} className="text-muted group-hover/link:text-accent transition-colors" />
+                      </h4>
+                    </Link>
                     <p className="text-xs sm:text-sm font-medium text-accent">
                       {language === "en" ? project.tagline : project.arabicTagline}
                     </p>

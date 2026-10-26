@@ -4,12 +4,26 @@ import {
   ProjectTranslation, 
   Technology, 
   ProjectTechnology,
+  ProjectFeature,
+  ProjectFeatureTranslation,
+  ProjectMedia,
+  ProjectMediaTranslation,
   DevelopmentStatus,
   OwnershipType,
   PartnershipStatus,
   PublicationStatus
 } from "@prisma/client";
-import { ProjectDTO, ProjectMetric, ProjectPartnershipNote, ProjectStatus } from "@/lib/types/portfolio";
+import { 
+  ProjectDTO, 
+  ProjectDetailDTO, 
+  ProjectFeatureDTO, 
+  ProjectTechDTO, 
+  ProjectMediaDTO, 
+  RelatedProjectDTO,
+  ProjectMetric, 
+  ProjectPartnershipNote, 
+  ProjectStatus 
+} from "@/lib/types/portfolio";
 
 // Architectural descriptors for the canonical projects (non-statistical, factual)
 const ARCHITECTURAL_METRICS: Record<string, ProjectMetric> = {
@@ -43,6 +57,15 @@ type DbProjectWithRelations = DbProject & {
   translations: ProjectTranslation[];
   technologies: (ProjectTechnology & {
     technology: Technology;
+  })[];
+};
+
+type DbProjectWithAllRelations = DbProjectWithRelations & {
+  features: (ProjectFeature & {
+    translations: ProjectFeatureTranslation[];
+  })[];
+  media: (ProjectMedia & {
+    translations: ProjectMediaTranslation[];
   })[];
 };
 
@@ -122,7 +145,7 @@ function mapOwnershipType(ownership: OwnershipType): {
 
 /**
  * Converts a raw database Project model with relations into a safe, client-ready ProjectDTO.
- * Decouples database internals (passwords, admin audit, raw IDs) from public UI presentation.
+ * Decouples database internals from public UI presentation.
  */
 export function mapProjectToDTO(dbProject: DbProjectWithRelations): ProjectDTO {
   const enTrans = dbProject.translations.find((t) => t.locale === "en");
@@ -185,9 +208,107 @@ export function mapProjectToDTO(dbProject: DbProjectWithRelations): ProjectDTO {
 }
 
 /**
+ * Maps a database project with all deep relations into a complete ProjectDetailDTO.
+ */
+export function mapProjectToDetailDTO(
+  dbProject: DbProjectWithAllRelations,
+  relatedProjects: RelatedProjectDTO[] = []
+): ProjectDetailDTO {
+  const baseDTO = mapProjectToDTO(dbProject);
+  const enTrans = dbProject.translations.find((t) => t.locale === "en");
+  const arTrans = dbProject.translations.find((t) => t.locale === "ar");
+
+  // Optional Problem Statement (only if verified)
+  let problem: { en: string; ar: string } | undefined;
+  if (enTrans?.problem && arTrans?.problem) {
+    problem = {
+      en: enTrans.problem,
+      ar: arTrans.problem,
+    };
+  }
+
+  // Optional Solution Statement (only if verified)
+  let solution: { en: string; ar: string } | undefined;
+  if (enTrans?.solution && arTrans?.solution) {
+    solution = {
+      en: enTrans.solution,
+      ar: arTrans.solution,
+    };
+  }
+
+  // Optional Role Description (only if verified)
+  let roleDescription: { en: string; ar: string } | undefined;
+  if (enTrans?.roleDescription && arTrans?.roleDescription) {
+    roleDescription = {
+      en: enTrans.roleDescription,
+      ar: arTrans.roleDescription,
+    };
+  }
+
+  // Features mapping
+  const features: ProjectFeatureDTO[] = dbProject.features
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((f) => {
+      const enF = f.translations.find((t) => t.locale === "en");
+      const arF = f.translations.find((t) => t.locale === "ar");
+      return {
+        id: f.id,
+        title: {
+          en: enF?.title || "Feature",
+          ar: arF?.title || enF?.title || "خاصية",
+        },
+        description: enF?.description && arF?.description ? {
+          en: enF.description,
+          ar: arF.description,
+        } : undefined,
+      };
+    });
+
+  // Technologies Detailed
+  const technologiesDetailed: ProjectTechDTO[] = dbProject.technologies
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((pt) => ({
+      name: pt.technology.name,
+      category: pt.technology.category,
+      isCore: pt.isCore,
+    }));
+
+  // Media mapping
+  const media: ProjectMediaDTO[] = dbProject.media
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((m) => {
+      const enM = m.translations.find((t) => t.locale === "en");
+      const arM = m.translations.find((t) => t.locale === "ar");
+      return {
+        id: m.id,
+        storageKey: m.storageKey,
+        mediaType: m.mediaType,
+        altText: {
+          en: enM?.altText || baseDTO.name,
+          ar: arM?.altText || baseDTO.arabicName,
+        },
+        caption: enM?.caption && arM?.caption ? {
+          en: enM.caption,
+          ar: arM.caption,
+        } : undefined,
+      };
+    });
+
+  return {
+    ...baseDTO,
+    problem,
+    solution,
+    roleDescription,
+    features,
+    technologiesDetailed,
+    media,
+    relatedProjects,
+  };
+}
+
+/**
  * Public Query Layer: Fetch only PUBLISHED projects.
  * DRAFT records are strictly filtered out and never returned.
- * Safe for public page rendering.
  */
 export async function getPublishedProjects(): Promise<ProjectDTO[]> {
   try {
@@ -211,14 +332,12 @@ export async function getPublishedProjects(): Promise<ProjectDTO[]> {
     return projects.map(mapProjectToDTO);
   } catch (error) {
     console.error("Database query failed in getPublishedProjects():", error);
-    // Graceful degradation: return empty array rather than crashing the page
     return [];
   }
 }
 
 /**
  * Development & Preview Query Layer: Fetch all projects regardless of publication status.
- * Intended for internal verification and /work-preview route.
  */
 export async function getPreviewProjects(): Promise<ProjectDTO[]> {
   try {
@@ -248,7 +367,7 @@ export async function getPreviewProjects(): Promise<ProjectDTO[]> {
  */
 export async function getProjectBySlug(slug: string): Promise<ProjectDTO | null> {
   try {
-    const project = await prisma.project.findUnique({
+    const project = await prisma.project.findFirst({
       where: {
         slug,
         publicationStatus: PublicationStatus.PUBLISHED,
@@ -290,6 +409,138 @@ export async function getPreviewProjectBySlug(slug: string): Promise<ProjectDTO 
     return mapProjectToDTO(project);
   } catch (error) {
     console.error(`Database query failed in getPreviewProjectBySlug(${slug}):`, error);
+    return null;
+  }
+}
+
+/**
+ * Single Project Detail Case Study query. Public: ONLY returns if PUBLISHED.
+ * DRAFT, ARCHIVED, or non-existent projects return null (triggering notFound()).
+ */
+export async function getProjectDetailBySlug(slug: string): Promise<ProjectDetailDTO | null> {
+  try {
+    const project = await prisma.project.findFirst({
+      where: {
+        slug,
+        publicationStatus: PublicationStatus.PUBLISHED,
+      },
+      include: {
+        translations: true,
+        technologies: {
+          include: { technology: true },
+          orderBy: { displayOrder: "asc" },
+        },
+        features: {
+          include: { translations: true },
+          orderBy: { displayOrder: "asc" },
+        },
+        media: {
+          include: { translations: true },
+          orderBy: { displayOrder: "asc" },
+        },
+      },
+    });
+
+    if (!project) return null;
+
+    // Fetch related published projects
+    const relatedDb = await prisma.project.findMany({
+      where: {
+        publicationStatus: PublicationStatus.PUBLISHED,
+        slug: { not: slug },
+      },
+      take: 2,
+      include: {
+        translations: true,
+      },
+      orderBy: { displayOrder: "asc" },
+    });
+
+    const relatedProjects: RelatedProjectDTO[] = relatedDb.map((rp) => {
+      const en = rp.translations.find((t) => t.locale === "en");
+      const ar = rp.translations.find((t) => t.locale === "ar");
+      const { status, arabicStatus, statusColor } = mapDevelopmentStatus(rp.developmentStatus);
+      return {
+        id: rp.slug,
+        slug: rp.slug,
+        name: en?.title || rp.slug,
+        arabicName: ar?.title || en?.title || rp.slug,
+        category: en?.categoryName || "Technology",
+        arabicCategory: ar?.categoryName || "تكنولوجيا",
+        status,
+        arabicStatus,
+        statusColor,
+        accentColor: rp.accentColor || statusColor,
+      };
+    });
+
+    return mapProjectToDetailDTO(project, relatedProjects);
+  } catch (error) {
+    console.error(`Database query failed in getProjectDetailBySlug(${slug}):`, error);
+    return null;
+  }
+}
+
+/**
+ * Preview Single Project Detail Case Study query.
+ * Returns draft projects for internal audit in /work-preview/[slug].
+ */
+export async function getPreviewProjectDetailBySlug(slug: string): Promise<ProjectDetailDTO | null> {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { slug },
+      include: {
+        translations: true,
+        technologies: {
+          include: { technology: true },
+          orderBy: { displayOrder: "asc" },
+        },
+        features: {
+          include: { translations: true },
+          orderBy: { displayOrder: "asc" },
+        },
+        media: {
+          include: { translations: true },
+          orderBy: { displayOrder: "asc" },
+        },
+      },
+    });
+
+    if (!project) return null;
+
+    // In preview mode, load other projects for related preview verification
+    const relatedDb = await prisma.project.findMany({
+      where: {
+        slug: { not: slug },
+      },
+      take: 2,
+      include: {
+        translations: true,
+      },
+      orderBy: { displayOrder: "asc" },
+    });
+
+    const relatedProjects: RelatedProjectDTO[] = relatedDb.map((rp) => {
+      const en = rp.translations.find((t) => t.locale === "en");
+      const ar = rp.translations.find((t) => t.locale === "ar");
+      const { status, arabicStatus, statusColor } = mapDevelopmentStatus(rp.developmentStatus);
+      return {
+        id: rp.slug,
+        slug: rp.slug,
+        name: en?.title || rp.slug,
+        arabicName: ar?.title || en?.title || rp.slug,
+        category: en?.categoryName || "Technology",
+        arabicCategory: ar?.categoryName || "تكنولوجيا",
+        status,
+        arabicStatus,
+        statusColor,
+        accentColor: rp.accentColor || statusColor,
+      };
+    });
+
+    return mapProjectToDetailDTO(project, relatedProjects);
+  } catch (error) {
+    console.error(`Database query failed in getPreviewProjectDetailBySlug(${slug}):`, error);
     return null;
   }
 }

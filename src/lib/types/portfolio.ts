@@ -10,6 +10,44 @@ export interface ProjectPartnershipNote {
   ar: string;
 }
 
+export interface LocalizedString {
+  en: string;
+  ar: string;
+}
+
+export interface ProjectFeatureDTO {
+  id: string;
+  title: LocalizedString;
+  description?: LocalizedString;
+}
+
+export interface ProjectTechDTO {
+  name: string;
+  category: string;
+  isCore: boolean;
+}
+
+export interface ProjectMediaDTO {
+  id: string;
+  storageKey: string;
+  mediaType: string;
+  altText: LocalizedString;
+  caption?: LocalizedString;
+}
+
+export interface RelatedProjectDTO {
+  id: string;
+  slug: string;
+  name: string;
+  arabicName: string;
+  category: string;
+  arabicCategory: string;
+  status: ProjectStatus;
+  arabicStatus: string;
+  statusColor: string;
+  accentColor: string;
+}
+
 /**
  * Public Presentation Data Transfer Object (DTO)
  * Used by UI components across client and server boundaries.
@@ -52,4 +90,18 @@ export interface ProjectDTO {
   
   metric?: ProjectMetric;
   accentColor: string;
+}
+
+/**
+ * Detailed Case Study Data Transfer Object
+ * Used for dynamic project detail pages (/work/[slug] and /work-preview/[slug])
+ */
+export interface ProjectDetailDTO extends ProjectDTO {
+  problem?: LocalizedString;
+  solution?: LocalizedString;
+  roleDescription?: LocalizedString;
+  features: ProjectFeatureDTO[];
+  technologiesDetailed: ProjectTechDTO[];
+  media: ProjectMediaDTO[];
+  relatedProjects: RelatedProjectDTO[];
 }

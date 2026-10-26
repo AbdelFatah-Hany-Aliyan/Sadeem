@@ -46,6 +46,30 @@ async function main() {
   }
   console.log(`✅ Seeded ${technologiesData.length} technologies`);
 
+  // Helper to seed verified project features
+  async function seedFeatures(projectId: string, featuresData: Array<{
+    displayOrder: number;
+    en: { title: string; description: string };
+    ar: { title: string; description: string };
+  }>) {
+    await prisma.projectFeature.deleteMany({ where: { projectId } });
+    for (let i = 0; i < featuresData.length; i++) {
+      const item = featuresData[i];
+      const feat = await prisma.projectFeature.create({
+        data: {
+          projectId,
+          displayOrder: item.displayOrder,
+        },
+      });
+      await prisma.projectFeatureTranslation.createMany({
+        data: [
+          { featureId: feat.id, locale: "en", title: item.en.title, description: item.en.description },
+          { featureId: feat.id, locale: "ar", title: item.ar.title, description: item.ar.description },
+        ],
+      });
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // 2. Canonical Real Projects (Seeded strictly as DRAFT, Factual Data Only)
   // ---------------------------------------------------------------------------
@@ -154,7 +178,42 @@ async function main() {
     }
   }
 
-  // PROJECT 2: Wesal
+  // Project 1 Features (Verified Factual Capabilities)
+  await seedFeatures(cucu.id, [
+    {
+      displayOrder: 1,
+      en: {
+        title: "On-Device Plant Pathology",
+        description: "Classifies Healthy Leaves, Downy Mildew, and Powdery Mildew offline without requiring permanent network connectivity.",
+      },
+      ar: {
+        title: "تشخيص أمراض النباتات على الجهاز مباشرة",
+        description: "تصنيف فوري للأوراق السليمة، والبياض الزغبي، والبياض الدقيقي دون الحاجة لاتصال دائم بالإنترنت.",
+      },
+    },
+    {
+      displayOrder: 2,
+      en: {
+        title: "Scan History & Confidence Scoring",
+        description: "Provides prediction confidence metrics for AI diagnostics and maintains historical records locally.",
+      },
+      ar: {
+        title: "سجل الفحوصات ومستوى دقة التنبؤ",
+        description: "عرض مستوى الثقة بالتنبؤ بدقة مع حفظ سجل الفحوصات والتشخيصات السابقة محلياً.",
+      },
+    },
+    {
+      displayOrder: 3,
+      en: {
+        title: "Multilingual UI & Appearance",
+        description: "Full Arabic and English UI support with tailored dark and light visual presentation modes.",
+      },
+      ar: {
+        title: "واجهة متعددة اللغات وتخصيص المظهر",
+        description: "دعم متكامل للغتين العربية والإنجليزية مع إمكانية التبديل بين الوضعين الداكن والفاتح.",
+      },
+    },
+  ]);
   const wesal = await prisma.project.upsert({
     where: { slug: "wesal" },
     update: {
@@ -257,7 +316,31 @@ async function main() {
     }
   }
 
-  // PROJECT 3: Tabadul (Strictly Documented: Collaborative initiative, partnership under discussion)
+  // Project 2 Features (Verified Factual Capabilities)
+  await seedFeatures(wesal.id, [
+    {
+      displayOrder: 1,
+      en: {
+        title: "Interactive Learning Feeds",
+        description: "Engaging educational activities and interactive tools for collaborative classroom engagement.",
+      },
+      ar: {
+        title: "أنشطة تعليمية وتفاعلية",
+        description: "أنشطة تفاعلية وأدوات تعليمية جاذبة لتعزيز المشاركة الصفية الرقمية.",
+      },
+    },
+    {
+      displayOrder: 2,
+      en: {
+        title: "Unified Stakeholder Mesh",
+        description: "Connects teachers, students, and parents within a secure institutional communication environment.",
+      },
+      ar: {
+        title: "شبكة تواصل مؤسسية موحدة",
+        description: "ربط المعلمين والطلاب وأولياء الأمور ضمن بيئة تواصل مدرسية آمنة وموثوقة.",
+      },
+    },
+  ]);
   const tabadul = await prisma.project.upsert({
     where: { slug: "tabadul" },
     update: {
@@ -360,7 +443,31 @@ async function main() {
     }
   }
 
-  // PROJECT 4: Lama School
+  // Project 3 Features (Verified Factual Capabilities)
+  await seedFeatures(tabadul.id, [
+    {
+      displayOrder: 1,
+      en: {
+        title: "Local Merchant Product Discovery",
+        description: "Enables customers to discover and browse product offerings across independent regional retailers.",
+      },
+      ar: {
+        title: "استكشاف منتجات المتاجر المحلية",
+        description: "استكشاف وتصفح المنتجات المتنوعة عبر شبكة واسعة من المتاجر المحلية المستقلة.",
+      },
+    },
+    {
+      displayOrder: 2,
+      en: {
+        title: "Cross-Merchant Loyalty Protocol",
+        description: "Shared loyalty network allowing points accumulation and reward redemption across participating retailers.",
+      },
+      ar: {
+        title: "شبكة موحدة لنقاط الولاء",
+        description: "منظومة ولاء تشاركية تتيح كسب النقاط واستبدالها لدى شبكة المتاجر المشاركة.",
+      },
+    },
+  ]);
   const lama = await prisma.project.upsert({
     where: { slug: "lama-school" },
     update: {
@@ -463,7 +570,33 @@ async function main() {
     }
   }
 
-  console.log("✅ Seeded 4 canonical projects with bilingual draft translations and tech relations");
+  // Project 4 Features (Verified Factual Capabilities)
+  await seedFeatures(lama.id, [
+    {
+      displayOrder: 1,
+      en: {
+        title: "4 Dedicated Stakeholder Portals",
+        description: "Tailored multi-role workspaces for school administrators, teachers, students, and guardians.",
+      },
+      ar: {
+        title: "4 بوابات مخصصة لأطراف المنظومة",
+        description: "واجهات مخصصة لكل من المدير والمعلم والطالب وولي الأمر لتلبية الاحتياجات التشغيلية.",
+      },
+    },
+    {
+      displayOrder: 2,
+      en: {
+        title: "Academic Assessments & Student Records",
+        description: "Unified management of lessons, grades, attendance logs, and direct guardian progress visibility.",
+      },
+      ar: {
+        title: "التقييمات ومتابعة السجلات الأكاديمية",
+        description: "تنظيم رصد الدرجات، وسجلات الحضور والغياب، واطلاع أولياء الأمور المباشر على الأداء الأكاديمي.",
+      },
+    },
+  ]);
+
+  console.log("✅ Seeded 4 canonical projects with bilingual draft translations, tech relations, and verified features");
 
   // ---------------------------------------------------------------------------
   // 3. Essential Non-Secret Site Settings

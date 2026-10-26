@@ -1,11 +1,18 @@
 import Work from "@/components/sections/Work";
 import { getPreviewProjects } from "@/lib/services/projectService";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ArrowLeft, Database, ShieldCheck, AlertCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkPreviewPage() {
+  // CRITICAL PRODUCTION GUARD:
+  // Strictly prevent draft preview routes from leaking in production deployments
+  if (process.env.NODE_ENV === "production" && process.env.ENABLE_DRAFT_PREVIEW !== "true") {
+    notFound();
+  }
+
   const previewProjects = await getPreviewProjects();
 
   return (
@@ -24,11 +31,11 @@ export default async function WorkPreviewPage() {
                     PostgreSQL Database-Driven Portfolio Preview
                   </h2>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-steel/20 text-steel border border-steel/30">
-                    STAGE B PREVIEW
+                    STAGE B PREVIEW (DEV ONLY)
                   </span>
                 </div>
                 <p className="text-xs text-muted font-mono mt-0.5">
-                  Rendering {previewProjects.length} projects loaded directly from PostgreSQL (`sadeem_dev`) via Prisma ORM.
+                  Rendering {previewProjects.length} projects loaded directly from PostgreSQL (`sadeem_dev`). Click any card to preview its dynamic case study.
                 </p>
               </div>
             </div>
@@ -53,14 +60,14 @@ export default async function WorkPreviewPage() {
             </div>
             <div className="flex items-center gap-2 text-muted">
               <AlertCircle size={14} className="text-amber-500" />
-              <span>Public Status: Awaiting Publication Approval</span>
+              <span>Production Guard: 404 in Production</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Render the Dynamic Work Section using Live PostgreSQL Data */}
-      <Work initialProjects={previewProjects} />
+      {/* Render the Dynamic Work Section using Live PostgreSQL Data with preview link routing */}
+      <Work initialProjects={previewProjects} hrefPrefix="/work-preview" />
     </div>
   );
 }
