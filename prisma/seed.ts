@@ -142,13 +142,14 @@ async function main() {
   });
 
   // Project 1 Tech Links
-  for (const slug of ["flutter", "mobilenet-v2"]) {
+  await prisma.projectTechnology.deleteMany({ where: { projectId: cucu.id } });
+  const cucuTech = ["flutter", "mobilenet-v2"];
+  for (let index = 0; index < cucuTech.length; index++) {
+    const slug = cucuTech[index];
     const techId = techMap.get(slug);
     if (techId) {
-      await prisma.projectTechnology.upsert({
-        where: { projectId_technologyId: { projectId: cucu.id, technologyId: techId } },
-        update: { isCore: true },
-        create: { projectId: cucu.id, technologyId: techId, isCore: true },
+      await prisma.projectTechnology.create({
+        data: { projectId: cucu.id, technologyId: techId, isCore: true, displayOrder: index },
       });
     }
   }
@@ -243,13 +244,15 @@ async function main() {
     },
   });
 
-  for (const slug of ["nextjs", "typescript", "postgresql", "websockets"]) {
+  // Project 2 Tech Links: Factual audited stack (Next.js)
+  await prisma.projectTechnology.deleteMany({ where: { projectId: wesal.id } });
+  const wesalTech = ["nextjs"];
+  for (let index = 0; index < wesalTech.length; index++) {
+    const slug = wesalTech[index];
     const techId = techMap.get(slug);
     if (techId) {
-      await prisma.projectTechnology.upsert({
-        where: { projectId_technologyId: { projectId: wesal.id, technologyId: techId } },
-        update: { isCore: true },
-        create: { projectId: wesal.id, technologyId: techId, isCore: true },
+      await prisma.projectTechnology.create({
+        data: { projectId: wesal.id, technologyId: techId, isCore: true, displayOrder: index },
       });
     }
   }
@@ -344,13 +347,15 @@ async function main() {
     },
   });
 
-  for (const slug of ["aspnet", "react", "flutter"]) {
+  // Project 3 Tech Links: Factual audited stack (ASP.NET, React.js, Flutter)
+  await prisma.projectTechnology.deleteMany({ where: { projectId: tabadul.id } });
+  const tabadulTech = ["aspnet", "react", "flutter"];
+  for (let index = 0; index < tabadulTech.length; index++) {
+    const slug = tabadulTech[index];
     const techId = techMap.get(slug);
     if (techId) {
-      await prisma.projectTechnology.upsert({
-        where: { projectId_technologyId: { projectId: tabadul.id, technologyId: techId } },
-        update: { isCore: true },
-        create: { projectId: tabadul.id, technologyId: techId, isCore: true },
+      await prisma.projectTechnology.create({
+        data: { projectId: tabadul.id, technologyId: techId, isCore: true, displayOrder: index },
       });
     }
   }
@@ -445,13 +450,15 @@ async function main() {
     },
   });
 
-  for (const slug of ["nextjs", "typescript", "postgresql", "tailwindcss"]) {
+  // Project 4 Tech Links: Factual audited stack (Next.js, TypeScript)
+  await prisma.projectTechnology.deleteMany({ where: { projectId: lama.id } });
+  const lamaTech = ["nextjs", "typescript"];
+  for (let index = 0; index < lamaTech.length; index++) {
+    const slug = lamaTech[index];
     const techId = techMap.get(slug);
     if (techId) {
-      await prisma.projectTechnology.upsert({
-        where: { projectId_technologyId: { projectId: lama.id, technologyId: techId } },
-        update: { isCore: true },
-        create: { projectId: lama.id, technologyId: techId, isCore: true },
+      await prisma.projectTechnology.create({
+        data: { projectId: lama.id, technologyId: techId, isCore: true, displayOrder: index },
       });
     }
   }

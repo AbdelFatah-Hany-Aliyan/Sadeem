@@ -5,8 +5,15 @@ export interface ProjectMetric {
   ar: string;
 }
 
+export interface ProjectPartnershipNote {
+  en: string;
+  ar: string;
+}
+
 export interface Project {
   id: string;
+  slug?: string;
+  type?: string;
   name: string;
   arabicName?: string;
   
@@ -32,6 +39,8 @@ export interface Project {
   featured: boolean;
   ownership: string;
   arabicOwnership: string;
+  partnershipStatus?: string;
+  partnershipNote?: ProjectPartnershipNote;
   externalLink?: string;
   
   metric?: ProjectMetric;
@@ -56,7 +65,7 @@ export const projects: Project[] = [
     statusColor: "#6C8B80", // Muted Sage
     accentColor: "#6C8B80",
     year: 2024,
-    technologies: ["TensorFlow", "React Native", "FastAPI", "Edge AI"],
+    technologies: ["Flutter", "MobileNetV2 (Fine-tuned)"],
     featured: true,
     ownership: "Sadeem Ventures",
     arabicOwnership: "سديم للمشاريع",
@@ -82,7 +91,7 @@ export const projects: Project[] = [
     statusColor: "#C28E62", // Brand Copper
     accentColor: "#C28E62",
     year: 2024,
-    technologies: ["Next.js", "WebSockets", "PostgreSQL", "React Native"],
+    technologies: ["Next.js"],
     featured: true,
     ownership: "Sadeem Ventures",
     arabicOwnership: "سديم للمشاريع",
@@ -108,10 +117,15 @@ export const projects: Project[] = [
     statusColor: "#C28E62", // Brand Copper
     accentColor: "#527C91",
     year: 2024,
-    technologies: ["Go", "Next.js", "Redis", "Distributed Ledger"],
+    technologies: ["ASP.NET", "React.js", "Flutter"],
     featured: true,
     ownership: "Strategic Venture Partnership (In Discussion)",
     arabicOwnership: "شراكة استراتيجية (قيد المناقشة)",
+    partnershipStatus: "UNDER_DISCUSSION",
+    partnershipNote: {
+      en: "Note: Collaborative ecosystem initiative. Strategic partnership terms are currently in active discussion.",
+      ar: "ملاحظة: مبادرة تجارية تشاركية. شروط الشراكة الاستراتيجية قيد المناقشة والمفاضلة حالياً."
+    },
     metric: {
       en: "Multi-Merchant Exchange Protocol",
       ar: "بروتوكول تبادل تجاري متعدد الأطراف"
@@ -134,7 +148,7 @@ export const projects: Project[] = [
     statusColor: "#6C8B80", // Muted Sage
     accentColor: "#C28E62",
     year: 2024,
-    technologies: ["TypeScript", "Next.js", "PostgreSQL", "Tailwind CSS"],
+    technologies: ["Next.js", "TypeScript"],
     featured: true,
     ownership: "Sadeem Systems",
     arabicOwnership: "سديم للأنظمة",

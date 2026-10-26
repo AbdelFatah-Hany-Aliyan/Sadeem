@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { projects } from "@/data/projects";
+import { projects as staticProjects, Project } from "@/data/projects";
+import { ProjectDTO } from "@/lib/types/portfolio";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { 
   Smartphone, 
@@ -12,18 +13,27 @@ import {
   Cpu
 } from "lucide-react";
 
-// Map project IDs to relevant semantic icons for vector illustrations
-const iconMap: Record<string, React.ElementType> = {
-  "cucu-leaf-scan": Smartphone,
-  "wesal": Layers,
-  "tabadul": ShoppingBag,
-  "lama-school": GraduationCap,
-};
+interface WorkProps {
+  initialProjects?: (ProjectDTO | Project)[];
+}
 
-export default function Work() {
+/**
+ * Resolves semantic icon based on project type or domain characteristics
+ */
+function resolveProjectIcon(project: ProjectDTO | Project): React.ElementType {
+  if (project.type === "MOBILE_APPLICATION" || project.id === "cucu-leaf-scan") return Smartphone;
+  if (project.type === "COLLABORATIVE_COMMERCE" || project.id === "tabadul") return ShoppingBag;
+  if (project.type === "ENTERPRISE_SYSTEM" || project.id === "lama-school") return GraduationCap;
+  if (project.type === "WEB_PLATFORM" || project.id === "wesal") return Layers;
+  return Cpu;
+}
+
+export default function Work({ initialProjects }: WorkProps) {
   const { t, language } = useLanguage();
-  const isRtl = language === "ar";
   
+  // Use server-provided database projects if available, otherwise safely fallback to static baseline
+  const displayProjects = initialProjects && initialProjects.length > 0 ? initialProjects : staticProjects;
+
   return (
     <section id="work" className="py-28 bg-background border-t border-border relative overflow-hidden">
       {/* Background Ambience */}
@@ -46,12 +56,11 @@ export default function Work() {
           </div>
         </div>
 
-        {/* 4 Projects Grid */}
+        {/* Dynamic Projects Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {projects.map((project, idx) => {
-            const IconComponent = iconMap[project.id] || Cpu;
+          {displayProjects.map((project, idx) => {
+            const IconComponent = resolveProjectIcon(project);
             const statusColor = project.statusColor || (project.status === "MVP" ? "#6C8B80" : "#C28E62");
-            const isTabadul = project.id === "tabadul";
 
             return (
               <motion.div
@@ -129,12 +138,10 @@ export default function Work() {
                     {language === "en" ? project.longDescription : project.arabicLongDescription}
                   </p>
 
-                  {/* Partnership Clarification Note for Tabadul */}
-                  {isTabadul && (
+                  {/* Partnership Clarification Note (Domain-driven, not hardcoded by project ID) */}
+                  {project.partnershipNote && (
                     <div className="mb-6 p-3 rounded-lg border border-steel/30 bg-steel/10 text-xs font-mono text-steel">
-                      {language === "en" 
-                        ? "Note: Collaborative ecosystem initiative. Strategic partnership terms are currently in active discussion."
-                        : "ملاحظة: مبادرة تجارية تشاركية. شروط الشراكة الاستراتيجية قيد المناقشة والمفاضلة حالياً."}
+                      {language === "en" ? project.partnershipNote.en : project.partnershipNote.ar}
                     </div>
                   )}
                 </div>

@@ -6,8 +6,15 @@ import WhySadeem from "@/components/sections/WhySadeem";
 import HowWeWork from "@/components/sections/HowWeWork";
 import About from "@/components/sections/About";
 import CTA from "@/components/sections/CTA";
+import { getPublishedProjects } from "@/lib/services/projectService";
 
-export default function Home() {
+// Incremental Static Regeneration (ISR): periodically revalidates portfolio data from database
+export const revalidate = 60;
+
+export default async function Home() {
+  // Safe server-side fetch: only queries PUBLISHED projects (DRAFT records strictly excluded)
+  const publishedProjects = await getPublishedProjects();
+
   return (
     <>
       <Hero />
@@ -15,7 +22,7 @@ export default function Home() {
       <DualEngine />
       <WhySadeem />
       <HowWeWork />
-      <Work />
+      <Work initialProjects={publishedProjects} />
       <About />
       <CTA />
     </>
