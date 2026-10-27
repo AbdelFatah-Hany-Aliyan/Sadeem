@@ -282,7 +282,12 @@ export function mapProjectToDetailDTO(
       return {
         id: m.id,
         storageKey: m.storageKey,
+        publicUrl: m.publicUrl,
         mediaType: m.mediaType,
+        isCover: m.isCover,
+        displayOrder: m.displayOrder,
+        width: m.width,
+        height: m.height,
         altText: {
           en: enM?.altText || baseDTO.name,
           ar: arM?.altText || baseDTO.arabicName,

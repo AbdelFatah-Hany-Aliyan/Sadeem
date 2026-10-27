@@ -351,20 +351,39 @@ export default function CaseStudyView({ project, isPreview = false }: CaseStudyV
         {project.media && project.media.length > 0 && (
           <section className="mb-16">
             <h2 className="text-xs font-mono uppercase tracking-widest text-accent mb-4">
-              07 // {isRtl ? "معرض الوسائط" : "Project Gallery"}
+              07 // {isRtl ? "معرض الوسائط والمعمارية" : "Project Media & Architecture"}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {project.media.map((item) => {
                 const alt = language === "en" ? item.altText.en : item.altText.ar;
                 const cap = item.caption ? (language === "en" ? item.caption.en : item.caption.ar) : null;
+                const imgSrc = item.publicUrl || (item.storageKey?.startsWith("http") ? item.storageKey : null);
+
                 return (
-                  <div key={item.id} className="rounded-xl border border-border bg-surface overflow-hidden">
-                    <div className="aspect-video bg-background flex items-center justify-center text-muted font-mono text-xs">
-                      {/* Placeholder or Storage Image */}
-                      {alt}
-                    </div>
+                  <div key={item.id} className="rounded-xl border border-border bg-surface/80 overflow-hidden shadow-sm hover:border-accent/40 transition-colors">
+                    {imgSrc ? (
+                      <div className="aspect-video relative overflow-hidden bg-background/90 flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imgSrc}
+                          alt={alt}
+                          className="w-full h-full object-contain p-4"
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : (
+                      <div className="aspect-video bg-background/60 p-6 flex flex-col items-center justify-center text-center border-b border-border/50">
+                        <div className="w-12 h-12 rounded-xl border border-border bg-surface flex items-center justify-center text-accent mb-3">
+                          <Layers size={24} />
+                        </div>
+                        <span className="text-xs font-mono font-bold text-foreground mb-1">{alt}</span>
+                        <span className="text-[10px] font-mono text-muted/60 uppercase tracking-widest">
+                          {item.mediaType} • {item.storageKey}
+                        </span>
+                      </div>
+                    )}
                     {cap && (
-                      <div className="p-3 text-xs font-mono text-muted border-t border-border">
+                      <div className="p-4 text-xs font-mono text-muted leading-relaxed border-t border-border bg-surface/40">
                         {cap}
                       </div>
                     )}

@@ -211,21 +211,26 @@ async function runAdminAuthTests() {
     try {
       const resPreview = await fetch("http://localhost:3000/work-preview", {
         headers: { Cookie: `sadeem_admin_session=${adminToken}` },
+        signal: AbortSignal.timeout(4000),
       });
       assert(resPreview.status === 200, "Authenticated administrator can access /work-preview (HTTP 200)");
 
       const resCaseStudy = await fetch("http://localhost:3000/work-preview/cucu-leaf-scan", {
         headers: { Cookie: `sadeem_admin_session=${adminToken}` },
+        signal: AbortSignal.timeout(4000),
       });
       assert(resCaseStudy.status === 200, "Authenticated administrator can access /work-preview/cucu-leaf-scan (HTTP 200)");
 
       const resAdmin = await fetch("http://localhost:3000/admin", {
         headers: { Cookie: `sadeem_admin_session=${adminToken}` },
+        signal: AbortSignal.timeout(4000),
       });
       assert(resAdmin.status === 200, "Authenticated administrator can access /admin overview (HTTP 200)");
 
       // Test anonymous rejection on /work-preview
-      const resAnon = await fetch("http://localhost:3000/work-preview");
+      const resAnon = await fetch("http://localhost:3000/work-preview", {
+        signal: AbortSignal.timeout(4000),
+      });
       assert(resAnon.status === 404, "Anonymous request to /work-preview is rejected with HTTP 404");
     } catch {
       console.log("  ⚠️ Skipping live HTTP tests (dev server not responding on port 3000)");

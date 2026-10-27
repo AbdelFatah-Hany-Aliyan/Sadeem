@@ -6,7 +6,7 @@ import prisma from "@/lib/prisma";
 import { AdminRole, PublicationStatus, ProjectType, DevelopmentStatus, OwnershipType, PartnershipStatus } from "@prisma/client";
 import { verifyPassword } from "@/lib/auth/password";
 import { signSessionToken } from "@/lib/auth/jwt";
-import { setSessionCookie, clearSessionCookie, getSession, requireRole, requireAuth } from "@/lib/auth/session";
+import { setSessionCookie, clearSessionCookie, revokeCurrentSession, getSession, requireRole, requireAuth } from "@/lib/auth/session";
 import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/auth/rate-limit";
 import { recordAuditLog } from "@/lib/auth/audit";
 import { 
@@ -16,6 +16,21 @@ import {
   archiveAdminProject,
   ProjectFormData 
 } from "@/lib/services/adminProjectService";
+import {
+  saveAdminSectionDraft,
+  publishAdminSection,
+  revertAdminSectionDraft,
+} from "@/lib/services/contentService";
+import {
+  createMediaRecord,
+  associateMediaWithProject,
+  disassociateMediaFromProject,
+  updateMediaTranslations,
+  reorderProjectMedia,
+  deleteMediaAsset,
+} from "@/lib/services/mediaService";
+import { uploadFileToStorage } from "@/lib/storage/storageProvider";
+import { MediaType } from "@prisma/client";
 
 export interface FormState {
   success?: boolean;
@@ -92,6 +107,7 @@ export async function loginAction(
     email: user.email,
     name: user.name,
     role: user.role,
+    tokenVersion: user.tokenVersion ?? 1,
   });
 
   await setSessionCookie(token);
@@ -109,6 +125,7 @@ export async function loginAction(
 
 /**
  * Administrator Logout Server Action
+ * Revokes token in database and clears session cookie.
  */
 export async function logoutAction(): Promise<void> {
   const session = await getSession();
@@ -121,7 +138,7 @@ export async function logoutAction(): Promise<void> {
     });
   }
 
-  await clearSessionCookie();
+  await revokeCurrentSession();
   redirect("/admin/login");
 }
 
@@ -221,5 +238,315 @@ export async function archiveProjectAction(id: string): Promise<FormState> {
   } catch (error: any) {
     console.error("archiveProjectAction error:", error);
     return { error: error.message || "An unexpected error occurred." };
+  }
+}
+
+/**
+ * =============================================================================
+ * Content Management Server Actions
+ * =============================================================================
+ */
+
+/**
+ * Save Content Section Draft Server Action (SUPER_ADMIN or EDITOR)
+ */
+export async function saveContentDraftAction(
+  sectionKey: string,
+  data: { en: Record<string, unknown>; ar: Record<string, unknown> }
+): Promise<FormState> {
+  try {
+    const session = await requireRole([AdminRole.SUPER_ADMIN, AdminRole.EDITOR]);
+    const result = await saveAdminSectionDraft(sectionKey, data, session);
+
+    if (!result.success) {
+      return { success: false, errors: result.errors };
+    }
+
+    revalidatePath("/admin/content");
+    revalidatePath(`/admin/content/${sectionKey}/edit`);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("saveContentDraftAction error:", error);
+    return { error: error.message || "Failed to save draft content." };
+  }
+}
+
+/**
+ * Publish Content Section Server Action (SUPER_ADMIN only)
+ */
+export async function publishContentSectionAction(sectionKey: string): Promise<FormState> {
+  try {
+    const session = await requireAuth();
+    const result = await publishAdminSection(sectionKey, session);
+
+    if (!result.success) {
+      return { success: false, errors: result.errors };
+    }
+
+    revalidatePath("/");
+    revalidatePath("/admin/content");
+    revalidatePath(`/admin/content/${sectionKey}/edit`);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("publishContentSectionAction error:", error);
+    return { error: error.message || "Failed to publish content section." };
+  }
+}
+
+/**
+ * Revert Content Section Draft Server Action
+ */
+export async function revertContentDraftAction(sectionKey: string): Promise<FormState> {
+  try {
+    const session = await requireRole([AdminRole.SUPER_ADMIN, AdminRole.EDITOR]);
+    const result = await revertAdminSectionDraft(sectionKey, session);
+
+    if (!result.success) {
+      return { success: false, errors: result.errors };
+    }
+
+    revalidatePath("/admin/content");
+    revalidatePath(`/admin/content/${sectionKey}/edit`);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("revertContentDraftAction error:", error);
+    return { error: error.message || "Failed to revert content draft." };
+  }
+}
+
+/**
+ * =============================================================================
+ * Media Management Server Actions
+ * =============================================================================
+ */
+
+/**
+ * Upload Media File Server Action
+ */
+export async function uploadMediaAction(formData: FormData): Promise<FormState & { mediaId?: string }> {
+  try {
+    const session = await requireRole([AdminRole.SUPER_ADMIN, AdminRole.EDITOR]);
+    const file = formData.get("file") as File | null;
+    const altTextEn = (formData.get("altTextEn") as string) || "";
+    const altTextAr = (formData.get("altTextAr") as string) || "";
+    const captionEn = (formData.get("captionEn") as string) || undefined;
+    const captionAr = (formData.get("captionAr") as string) || undefined;
+    const projectId = (formData.get("projectId") as string) || undefined;
+    const mediaType = (formData.get("mediaType") as MediaType) || MediaType.SCREENSHOT;
+    const isCover = formData.get("isCover") === "true";
+
+    if (!file || file.size === 0) {
+      return { error: "Please select a valid image file to upload." };
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Attempt upload to object storage
+    const uploadResult = await uploadFileToStorage({
+      buffer,
+      filename: file.name,
+      mimeType: file.type || "image/png",
+    });
+
+    const createResult = await createMediaRecord(
+      {
+        projectId,
+        mediaType,
+        storageKey: uploadResult.storageKey,
+        publicUrl: uploadResult.publicUrl,
+        originalFilename: file.name,
+        mimeType: uploadResult.mimeType,
+        sizeBytes: uploadResult.sizeBytes,
+        isCover,
+        altTextEn,
+        altTextAr,
+        captionEn,
+        captionAr,
+      },
+      session
+    );
+
+    if (!createResult.success) {
+      return { success: false, errors: createResult.errors };
+    }
+
+    revalidatePath("/admin/media");
+    if (projectId) {
+      revalidatePath(`/admin/projects/${projectId}/edit`);
+      revalidatePath("/work-preview");
+      revalidatePath("/");
+    }
+
+    return { success: true, mediaId: createResult.mediaId };
+  } catch (error: any) {
+    console.error("uploadMediaAction error:", error);
+    return { error: error.message || "Failed to upload media." };
+  }
+}
+
+/**
+ * Create Existing / Seeded Media Record Server Action
+ */
+export async function createMediaRecordAction(data: {
+  storageKey: string;
+  publicUrl?: string;
+  originalFilename?: string;
+  mimeType?: string;
+  mediaType?: MediaType;
+  projectId?: string;
+  isCover?: boolean;
+  altTextEn: string;
+  altTextAr: string;
+  captionEn?: string;
+  captionAr?: string;
+}): Promise<FormState & { mediaId?: string }> {
+  try {
+    const session = await requireRole([AdminRole.SUPER_ADMIN, AdminRole.EDITOR]);
+    const result = await createMediaRecord(data, session);
+
+    if (!result.success) {
+      return { success: false, errors: result.errors };
+    }
+
+    revalidatePath("/admin/media");
+    if (data.projectId) {
+      revalidatePath(`/admin/projects/${data.projectId}/edit`);
+      revalidatePath("/work-preview");
+      revalidatePath("/");
+    }
+
+    return { success: true, mediaId: result.mediaId };
+  } catch (error: any) {
+    return { error: error.message || "Failed to register media asset." };
+  }
+}
+
+/**
+ * Associate Media with Project Server Action
+ */
+export async function associateMediaAction(
+  mediaId: string,
+  projectId: string,
+  options?: { isCover?: boolean; displayOrder?: number }
+): Promise<FormState> {
+  try {
+    await requireRole([AdminRole.SUPER_ADMIN, AdminRole.EDITOR]);
+    const result = await associateMediaWithProject(mediaId, projectId, options);
+
+    if (!result.success) {
+      return { success: false, errors: result.errors };
+    }
+
+    revalidatePath("/admin/media");
+    revalidatePath(`/admin/projects/${projectId}/edit`);
+    revalidatePath("/work-preview");
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "Failed to associate media." };
+  }
+}
+
+/**
+ * Disassociate Media from Project Server Action
+ */
+export async function disassociateMediaAction(mediaId: string, projectId?: string): Promise<FormState> {
+  try {
+    await requireRole([AdminRole.SUPER_ADMIN, AdminRole.EDITOR]);
+    const result = await disassociateMediaFromProject(mediaId);
+
+    if (!result.success) {
+      return { success: false, errors: result.errors };
+    }
+
+    revalidatePath("/admin/media");
+    if (projectId) {
+      revalidatePath(`/admin/projects/${projectId}/edit`);
+      revalidatePath("/work-preview");
+      revalidatePath("/");
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "Failed to disassociate media." };
+  }
+}
+
+/**
+ * Update Media Bilingual Translations Server Action
+ */
+export async function updateMediaTranslationsAction(
+  mediaId: string,
+  data: { altTextEn: string; altTextAr: string; captionEn?: string; captionAr?: string }
+): Promise<FormState> {
+  try {
+    const session = await requireRole([AdminRole.SUPER_ADMIN, AdminRole.EDITOR]);
+    const result = await updateMediaTranslations(mediaId, data, session);
+
+    if (!result.success) {
+      return { success: false, errors: result.errors };
+    }
+
+    revalidatePath("/admin/media");
+    revalidatePath("/work-preview");
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "Failed to update media translations." };
+  }
+}
+
+/**
+ * Reorder Project Media Server Action
+ */
+export async function reorderMediaAction(
+  projectId: string,
+  orderedMediaIds: string[]
+): Promise<FormState> {
+  try {
+    await requireRole([AdminRole.SUPER_ADMIN, AdminRole.EDITOR]);
+    const result = await reorderProjectMedia(projectId, orderedMediaIds);
+
+    if (!result.success) {
+      return { success: false, errors: result.errors };
+    }
+
+    revalidatePath("/admin/media");
+    revalidatePath(`/admin/projects/${projectId}/edit`);
+    revalidatePath("/work-preview");
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "Failed to reorder media." };
+  }
+}
+
+/**
+ * Delete Media Asset Server Action (SUPER_ADMIN only)
+ */
+export async function deleteMediaAction(mediaId: string): Promise<FormState> {
+  try {
+    const session = await requireAuth();
+    const result = await deleteMediaAsset(mediaId, session);
+
+    if (!result.success) {
+      return { success: false, errors: result.errors };
+    }
+
+    revalidatePath("/admin/media");
+    revalidatePath("/admin/projects");
+    revalidatePath("/work-preview");
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "Failed to delete media asset." };
   }
 }

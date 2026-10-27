@@ -1,3 +1,17 @@
+/**
+ * SADEEM STUDIO — AUTHENTICATION RATE LIMITING ARCHITECTURE
+ * 
+ * Local Development & Single-Instance:
+ * In-memory token/attempt bucket Map. Protects single-instance Node.js deployments
+ * against rapid brute-force credential stuffing attacks (5 attempts / 15-minute lockout).
+ * 
+ * Production Multi-Instance Strategy:
+ * In multi-region, serverless, or containerized environments (Kubernetes, AWS ECS, Vercel),
+ * in-memory state is isolated per process. For production clustering, this module is designed
+ * to be backed by a centralized Redis instance (e.g., Upstash Redis via `@upstash/ratelimit`
+ * or AWS ElastiCache) using an atomic sliding window token algorithm.
+ */
+
 interface RateLimitRecord {
   attempts: number;
   firstAttemptAt: number;

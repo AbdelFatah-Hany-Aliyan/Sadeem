@@ -30,7 +30,12 @@ export interface ProjectTechDTO {
 export interface ProjectMediaDTO {
   id: string;
   storageKey: string;
+  publicUrl?: string | null;
   mediaType: string;
+  isCover: boolean;
+  displayOrder: number;
+  width?: number | null;
+  height?: number | null;
   altText: LocalizedString;
   caption?: LocalizedString;
 }

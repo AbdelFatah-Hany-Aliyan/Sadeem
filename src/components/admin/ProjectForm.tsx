@@ -20,7 +20,12 @@ import {
   Loader2, 
   Languages, 
   Cpu, 
-  ShieldAlert 
+  ShieldAlert,
+  Image as ImageIcon,
+  Star,
+  Layers,
+  Unlink,
+  ExternalLink 
 } from "lucide-react";
 
 interface ProjectFormProps {
@@ -38,7 +43,7 @@ export function ProjectForm({
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"general" | "en" | "ar" | "tech">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "en" | "ar" | "tech" | "media">("general");
 
   const enTrans = initialData?.translations?.find((t: any) => t.locale === "en");
   const arTrans = initialData?.translations?.find((t: any) => t.locale === "ar");
@@ -215,6 +220,18 @@ export function ProjectForm({
         >
           <Cpu size={14} />
           <span>Technologies ({selectedTechs.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("media")}
+          className={`py-3 px-5 font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+            activeTab === "media"
+              ? "border-accent text-accent"
+              : "border-transparent text-muted hover:text-foreground"
+          }`}
+        >
+          <ImageIcon size={14} />
+          <span>Media & Gallery ({initialData?.media?.length || 0})</span>
         </button>
       </div>
 
@@ -591,6 +608,94 @@ export function ProjectForm({
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 5: MEDIA & GALLERY */}
+      {activeTab === "media" && (
+        <div className="space-y-6 rounded-2xl border border-border bg-surface/70 p-8 text-xs font-mono">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+            <div>
+              <h2 className="text-sm font-bold text-foreground uppercase tracking-wider mb-1">
+                Project Media & Gallery Assets
+              </h2>
+              <p className="text-muted text-xs">
+                Manage cover image and gallery screenshots attached to this project.
+              </p>
+            </div>
+
+            <Link
+              href="/admin/media"
+              target="_blank"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 border border-accent/30 text-accent font-bold hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+              <span>Open Media Library</span>
+              <ExternalLink size={12} />
+            </Link>
+          </div>
+
+          {!isEditMode ? (
+            <div className="p-8 text-center rounded-xl border border-border bg-background/50 text-muted">
+              Please create and save this project draft first before associating media and gallery assets.
+            </div>
+          ) : !initialData?.media || initialData.media.length === 0 ? (
+            <div className="p-8 text-center rounded-xl border border-border bg-background/50 space-y-3">
+              <div className="w-10 h-10 mx-auto rounded-lg border border-border bg-surface flex items-center justify-center text-muted">
+                <ImageIcon size={20} />
+              </div>
+              <p className="text-muted">No media assets are currently attached to this project.</p>
+              <Link
+                href="/admin/media"
+                className="inline-flex items-center gap-1 text-accent hover:underline font-bold"
+              >
+                Go to Studio Media Library to link or register media →
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {initialData.media.map((item: any) => {
+                const enAlt = item.translations?.find((t: any) => t.locale === "en")?.altText || item.storageKey;
+                const arAlt = item.translations?.find((t: any) => t.locale === "ar")?.altText;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="p-4 rounded-xl border border-border bg-background/70 space-y-3 relative overflow-hidden"
+                  >
+                    <div className="aspect-video rounded-lg bg-surface flex items-center justify-center text-muted border border-border/50 relative overflow-hidden">
+                      {item.publicUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.publicUrl}
+                          alt={enAlt}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <Layers size={22} className="text-accent mb-1" />
+                          <span className="text-[10px] text-muted/60">{item.storageKey}</span>
+                        </div>
+                      )}
+
+                      {item.isCover && (
+                        <span className="absolute top-2 right-2 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold flex items-center gap-1">
+                          <Star size={10} /> Cover
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-accent uppercase font-bold">{item.mediaType}</div>
+                      <div className="font-bold text-foreground text-xs truncate">{enAlt}</div>
+                      {arAlt && (
+                        <div className="text-muted/80 text-xs truncate font-arabic" dir="rtl">{arAlt}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

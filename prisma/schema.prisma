@@ -208,23 +208,29 @@ model ProjectTechnology {
 }
 
 model ProjectMedia {
-  id           String                    @id @default(cuid())
-  projectId    String
-  mediaType    MediaType                 @default(SCREENSHOT)
-  storageKey   String                    // S3/R2/GCS key or asset path
-  mimeType     String?
-  width        Int?
-  height       Int?
-  sizeBytes    BigInt?
-  displayOrder Int                       @default(0)
+  id               String                    @id @default(cuid())
+  projectId        String?
+  mediaType        MediaType                 @default(SCREENSHOT)
+  storageKey       String                    // S3/R2/GCS key or asset path
+  publicUrl        String?
+  originalFilename String?
+  mimeType         String?
+  width            Int?
+  height           Int?
+  sizeBytes        BigInt?
+  displayOrder     Int                       @default(0)
+  isCover          Boolean                   @default(false)
+  uploadedBy       String?
   
-  createdAt    DateTime                  @default(now())
-  updatedAt    DateTime                  @updatedAt
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
 
-  project      Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  translations ProjectMediaTranslation[]
+  project          Project?                  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  translations     ProjectMediaTranslation[]
 
   @@index([projectId, displayOrder])
+  @@index([mediaType])
+  @@index([storageKey])
 }
 
 model ProjectMediaTranslation {
@@ -250,28 +256,38 @@ model ProjectMediaTranslation {
 model ContentSection {
   id           String               @id @default(cuid())
   sectionKey   String               @unique // e.g. "hero", "capabilities", "dual_engine", "about"
+  name         String?
   description  String?
+  status       PublicationStatus    @default(DRAFT)
+  publishedAt  DateTime?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
   translations ContentTranslation[]
 
   @@index([sectionKey])
+  @@index([status])
 }
 
 model ContentTranslation {
-  id          String         @id @default(cuid())
-  sectionId   String
-  locale      String         // "en", "ar"
-  content     Json           // Structured JSON matching section schema
+  id               String            @id @default(cuid())
+  sectionId        String
+  locale           String            // "en", "ar"
+  status           PublicationStatus @default(DRAFT)
+  draftContent     Json              // Active draft edited in admin
+  publishedContent Json?             // Approved published content visible to public
+  publishedAt      DateTime?
+  publishedBy      String?
+  updatedBy        String?
 
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  section     ContentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  section          ContentSection    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   @@unique([sectionId, locale])
   @@index([locale])
+  @@index([status])
 }
 
 model SiteSetting {
@@ -312,20 +328,36 @@ model Inquiry {
 // -----------------------------------------------------------------------------
 
 model AdminUser {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  passwordHash String
-  name         String
-  role         AdminRole  @default(EDITOR)
-  isActive     Boolean    @default(true)
-  lastLoginAt  DateTime?
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  role          AdminRole      @default(EDITOR)
+  isActive      Boolean        @default(true)
+  tokenVersion  Int            @default(1)
+  lastLoginAt   DateTime?
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
-  auditLogs    AuditLog[]
+  auditLogs     AuditLog[]
+  revokedTokens RevokedToken[]
 
   @@index([email])
+}
+
+model RevokedToken {
+  id        String     @id @default(cuid())
+  jti       String     @unique
+  userId    String?
+  reason    String?    // e.g. "LOGOUT", "REVOCATION"
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+
+  user      AdminUser? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([jti])
+  @@index([expiresAt])
 }
 
 model AuditLog {

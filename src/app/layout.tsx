@@ -4,6 +4,7 @@ import "./globals.css";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Providers } from "@/providers/Providers";
+import { getPublishedWebsiteContent } from "@/lib/services/contentService";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -22,16 +23,21 @@ export const metadata: Metadata = {
   description: "We Build Systems. We Turn Ideas Into Companies. Sadeem builds custom business systems, digital products, and new ventures from idea to launch.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Lang and dir will be hydrated by LanguageProvider, default to en/ltr for SSR
+  // Load published content from PostgreSQL (with static baseline fallback)
+  const [publishedEn, publishedAr] = await Promise.all([
+    getPublishedWebsiteContent("en"),
+    getPublishedWebsiteContent("ar"),
+  ]);
+
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <body className={`${inter.variable} ${arabic.variable} antialiased bg-background text-foreground min-h-screen flex flex-col font-sans`}>
-        <Providers>
+        <Providers initialContent={{ en: publishedEn, ar: publishedAr }}>
           <Navigation />
           <main className="flex-grow">
             {children}

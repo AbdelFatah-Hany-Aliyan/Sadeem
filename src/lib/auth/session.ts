@@ -11,7 +11,11 @@ export interface CurrentUserSession extends AdminSessionPayload {
 
 /**
  * Retrieves and validates the current administrator session from HttpOnly cookies.
- * Cross-references with database to verify the user account has not been deactivated.
+ * Security enforcement:
+ * 1. Cryptographic JWT signature and expiration verification.
+ * 2. Instant token revocation check (RevokedToken table).
+ * 3. Database user existence & active status verification (isActive === true).
+ * 4. Token version alignment (tokenVersion check for password changes/global session resets).
  */
 export async function getSession(): Promise<CurrentUserSession | null> {
   try {
@@ -23,17 +27,32 @@ export async function getSession(): Promise<CurrentUserSession | null> {
     }
 
     const payload = await verifySessionToken(sessionCookie.value);
-    if (!payload || !payload.userId) {
+    if (!payload || !payload.userId || !payload.jti) {
       return null;
     }
 
-    // Verify active status in database
+    // Check token revocation blacklist
+    const isRevoked = await prisma.revokedToken.findUnique({
+      where: { jti: payload.jti },
+      select: { id: true },
+    });
+
+    if (isRevoked) {
+      return null;
+    }
+
+    // Verify active status and token version in database
     const user = await prisma.adminUser.findUnique({
       where: { id: payload.userId },
-      select: { id: true, email: true, name: true, role: true, isActive: true },
+      select: { id: true, email: true, name: true, role: true, isActive: true, tokenVersion: true },
     });
 
     if (!user || !user.isActive) {
+      return null;
+    }
+
+    // If token version doesn't match, session was invalidated by password change or admin reset
+    if (user.tokenVersion !== payload.tokenVersion) {
       return null;
     }
 
@@ -42,6 +61,8 @@ export async function getSession(): Promise<CurrentUserSession | null> {
       email: user.email,
       name: user.name,
       role: user.role,
+      tokenVersion: user.tokenVersion,
+      jti: payload.jti,
       isActive: user.isActive,
     };
   } catch (error) {
@@ -65,11 +86,51 @@ export async function setSessionCookie(token: string): Promise<void> {
 }
 
 /**
- * Clears the session cookie upon logout.
+ * Revokes the current session token in database and deletes the cookie upon logout.
+ */
+export async function revokeCurrentSession(): Promise<void> {
+  try {
+    const cookieStore = cookies();
+    const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
+
+    if (sessionCookie?.value) {
+      const payload = await verifySessionToken(sessionCookie.value);
+      if (payload?.jti) {
+        await prisma.revokedToken.upsert({
+          where: { jti: payload.jti },
+          update: {},
+          create: {
+            jti: payload.jti,
+            userId: payload.userId,
+            reason: "LOGOUT",
+            expiresAt: new Date(Date.now() + 60 * 60 * 24 * 1000),
+          },
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error revoking session:", error);
+  } finally {
+    const cookieStore = cookies();
+    cookieStore.delete(SESSION_COOKIE_NAME);
+  }
+}
+
+/**
+ * Invalidates all active sessions for a user (e.g. after password change or admin revocation).
+ */
+export async function invalidateAllUserSessions(userId: string): Promise<void> {
+  await prisma.adminUser.update({
+    where: { id: userId },
+    data: { tokenVersion: { increment: 1 } },
+  });
+}
+
+/**
+ * Clears the session cookie upon logout (legacy fallback).
  */
 export async function clearSessionCookie(): Promise<void> {
-  const cookieStore = cookies();
-  cookieStore.delete(SESSION_COOKIE_NAME);
+  await revokeCurrentSession();
 }
 
 /**

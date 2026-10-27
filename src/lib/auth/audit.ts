@@ -25,8 +25,8 @@ export async function recordAuditLog({
 
     if (details) {
       for (const [key, value] of Object.entries(details)) {
-        // Strip sensitive fields
-        if (/password|hash|token|secret|key|cookie/i.test(key)) {
+        // Strip sensitive credentials and tokens while preserving domain keys like sectionKey
+        if (/password|hash|token|secret|cookie|auth|credential|apikey|api_key|privatekey|private_key|secretkey|secret_key/i.test(key)) {
           sanitizedDetails[key] = "[REDACTED]";
         } else {
           sanitizedDetails[key] = value;

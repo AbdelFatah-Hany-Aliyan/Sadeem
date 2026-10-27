@@ -173,6 +173,10 @@ export async function getAdminProjectById(idOrSlug: string) {
         include: { translations: true },
         orderBy: { displayOrder: "asc" },
       },
+      media: {
+        include: { translations: true },
+        orderBy: { displayOrder: "asc" },
+      },
     },
   });
 }
