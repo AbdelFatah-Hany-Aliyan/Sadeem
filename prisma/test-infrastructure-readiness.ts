@@ -32,8 +32,15 @@ async function runInfrastructureReadinessTests() {
   // Check DATABASE_URL presence
   assert(!!process.env.DATABASE_URL, "DATABASE_URL is defined in environment");
   assert(
-    !process.env.DATABASE_URL?.includes("sadeem_prod"),
-    "Development environment correctly points to local development database, not production"
+    !process.env.DATABASE_URL?.includes("sadeem_prod") && !process.env.DATABASE_URL?.includes("sadeem_staging"),
+    "Development environment correctly points to local development database, not production or staging"
+  );
+
+  // Check DIRECT_URL presence (Prisma pooled runtime vs direct migration separation)
+  assert(!!process.env.DIRECT_URL, "DIRECT_URL is defined in environment for migration connection isolation");
+  assert(
+    !process.env.DIRECT_URL?.includes("sadeem_prod") && !process.env.DIRECT_URL?.includes("sadeem_staging"),
+    "DIRECT_URL correctly points to local development database in dev environment"
   );
 
   // Check AUTH_SECRET behavior
