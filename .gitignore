@@ -25,6 +25,9 @@ yarn-error.log*
 .env.*
 !.env.example
 
+# neon context
+.neon
+
 # vercel
 .vercel/
 

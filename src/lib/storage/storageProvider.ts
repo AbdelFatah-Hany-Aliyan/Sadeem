@@ -12,6 +12,8 @@
  */
 
 import { randomUUID } from "crypto";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export interface StorageStatus {
   configured: boolean;
@@ -39,19 +41,43 @@ const ALLOWED_MIME_TYPES = new Set([
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /**
+ * Helper to build an S3Client instance configured for AWS, Cloudflare R2, or Neon.
+ */
+function getS3Client(): S3Client {
+  const accessKeyId = process.env.STORAGE_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.STORAGE_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+  const endpoint = process.env.STORAGE_ENDPOINT || process.env.AWS_ENDPOINT_URL_S3;
+  const region = process.env.STORAGE_REGION || process.env.AWS_REGION || "us-east-2";
+
+  return new S3Client({
+    region,
+    endpoint: endpoint || undefined,
+    forcePathStyle: true, // Required for Neon Object Storage and MinIO/S3 path-style addressing
+    credentials: {
+      accessKeyId: accessKeyId!,
+      secretAccessKey: secretAccessKey!,
+    },
+  });
+}
+
+/**
  * Checks whether an external object storage provider is configured in environment.
+ * Supports standard STORAGE_* variables as well as Neon-injected AWS_* credentials.
  */
 export function getStorageStatus(): StorageStatus {
-  const provider = (process.env.STORAGE_PROVIDER || "").toLowerCase().trim();
-  const bucket = process.env.STORAGE_BUCKET;
-  const endpoint = process.env.STORAGE_ENDPOINT;
-  const accessKeyId = process.env.STORAGE_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.STORAGE_SECRET_ACCESS_KEY;
+  const rawProvider = (process.env.STORAGE_PROVIDER || "").toLowerCase().trim();
+  const hasNeonEnv = !!process.env.AWS_ENDPOINT_URL_S3 || (!!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY);
+  const provider = rawProvider || (hasNeonEnv ? "neon" : "");
+
+  const bucket = process.env.STORAGE_BUCKET || (provider === "neon" ? "sadeem-media-staging" : undefined);
+  const endpoint = process.env.STORAGE_ENDPOINT || process.env.AWS_ENDPOINT_URL_S3;
+  const accessKeyId = process.env.STORAGE_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.STORAGE_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
 
   const missingVariables: string[] = [];
 
-  if (!provider || (provider !== "s3" && provider !== "r2" && provider !== "local")) {
-    missingVariables.push("STORAGE_PROVIDER (s3 | r2)");
+  if (!provider || (provider !== "s3" && provider !== "r2" && provider !== "neon" && provider !== "local")) {
+    missingVariables.push("STORAGE_PROVIDER (s3 | r2 | neon)");
   }
   if (!bucket) {
     missingVariables.push("STORAGE_BUCKET");
@@ -224,11 +250,37 @@ export async function uploadFileToStorage(file: {
   const cleanName = sanitizeStorageFilename(file.filename);
   const storageKey = `projects/${year}/${month}/${randomUUID()}-${cleanName}`;
 
-  // When external provider credentials are supplied in production:
-  // e.g. PutObjectCommand on S3Client
-  // For verified configuration, compute public URL from CDN or bucket endpoint
-  const publicBaseUrl = process.env.STORAGE_PUBLIC_URL || `https://${status.bucket}.s3.amazonaws.com`;
-  const publicUrl = `${publicBaseUrl.replace(/\/$/, "")}/${storageKey}`;
+  const s3 = getS3Client();
+
+  // Upload object to S3 / Neon Object Storage / Cloudflare R2
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: status.bucket,
+      Key: storageKey,
+      Body: file.buffer,
+      ContentType: file.mimeType,
+    })
+  );
+
+  // Compute retrieval URL:
+  // 1. If custom CDN / public URL is configured (recommended for production assets)
+  // 2. Otherwise generate a presigned GET URL (for private buckets) or direct endpoint URL
+  let publicUrl: string;
+  if (process.env.STORAGE_PUBLIC_URL) {
+    publicUrl = `${process.env.STORAGE_PUBLIC_URL.replace(/\/$/, "")}/${storageKey}`;
+  } else if (status.endpoint) {
+    try {
+      const getCmd = new GetObjectCommand({
+        Bucket: status.bucket,
+        Key: storageKey,
+      });
+      publicUrl = await getSignedUrl(s3, getCmd, { expiresIn: 86400 });
+    } catch {
+      publicUrl = `${status.endpoint.replace(/\/$/, "")}/${status.bucket}/${storageKey}`;
+    }
+  } else {
+    publicUrl = `https://${status.bucket}.s3.amazonaws.com/${storageKey}`;
+  }
 
   return {
     storageKey,
@@ -248,6 +300,17 @@ export async function deleteFileFromStorage(storageKey: string): Promise<boolean
     return false;
   }
 
-  // S3 / R2 DeleteObjectCommand implementation when configured
-  return true;
+  try {
+    const s3 = getS3Client();
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: status.bucket,
+        Key: storageKey,
+      })
+    );
+    return true;
+  } catch (error) {
+    console.error(`Failed to delete storage object '${storageKey}':`, error);
+    return false;
+  }
 }
