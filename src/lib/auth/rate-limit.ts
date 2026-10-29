@@ -170,6 +170,37 @@ export async function checkDistributedRateLimit(key: string): Promise<{
     }
   }
 
+  // Warn in production if distributed protection is missing
+  if (process.env.NODE_ENV === "production" && !status.isDistributed) {
+    console.warn(
+      "[PRODUCTION_RATE_LIMIT_WARNING] Distributed store (Upstash/Redis) is unconfigured in production. Falling back to process memory. Multi-instance rate limiting is INACTIVE."
+    );
+  }
+
   // Fallback to local in-memory
   return checkRateLimit(key);
+}
+
+/**
+ * Validates whether the application is configured for production-grade distributed rate limiting.
+ */
+export function verifyDistributedRateLimiterConfig(): {
+  isReadyForProduction: boolean;
+  provider: string;
+  message: string;
+} {
+  const status = getRateLimiterStatus();
+  if (status.isDistributed) {
+    return {
+      isReadyForProduction: true,
+      provider: status.provider,
+      message: `Distributed rate limiting is ACTIVE via ${status.provider}.`,
+    };
+  }
+  return {
+    isReadyForProduction: false,
+    provider: "in_memory",
+    message:
+      "CONFIGURATION REQUIRED: Distributed rate limiting requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN. In-memory limiting cannot protect serverless or clustered production deployments.",
+  };
 }

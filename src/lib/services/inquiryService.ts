@@ -24,7 +24,7 @@ import {
 } from "@prisma/client";
 import { CurrentUserSession } from "@/lib/auth/session";
 import { recordAuditLog } from "@/lib/auth/audit";
-import { checkRateLimit, recordFailedAttempt } from "@/lib/auth/rate-limit";
+import { checkRateLimit, checkDistributedRateLimit, recordFailedAttempt } from "@/lib/auth/rate-limit";
 
 // Field validation limits
 const MAX_SHORT_STRING = 120;
@@ -148,9 +148,9 @@ export async function submitBusinessProjectInquiry(
   clientIp?: string
 ): Promise<{ success: boolean; inquiryId?: string; errors?: string[] }> {
   try {
-    // 1. Rate limiting check by IP or email
+    // 1. Rate limiting check by IP or email (distributed-ready)
     const rateLimitKey = `inquiry:${clientIp || input.email.toLowerCase().trim()}`;
-    const rateLimit = checkRateLimit(rateLimitKey);
+    const rateLimit = await checkDistributedRateLimit(rateLimitKey);
     if (!rateLimit.allowed) {
       return {
         success: false,
@@ -254,9 +254,9 @@ export async function submitVenturePitchInquiry(
   clientIp?: string
 ): Promise<{ success: boolean; inquiryId?: string; errors?: string[] }> {
   try {
-    // 1. Rate limiting check
+    // 1. Rate limiting check (distributed-ready)
     const rateLimitKey = `inquiry:${clientIp || input.email.toLowerCase().trim()}`;
-    const rateLimit = checkRateLimit(rateLimitKey);
+    const rateLimit = await checkDistributedRateLimit(rateLimitKey);
     if (!rateLimit.allowed) {
       return {
         success: false,
@@ -364,7 +364,7 @@ export async function submitGeneralInquiry(
 ): Promise<{ success: boolean; inquiryId?: string; errors?: string[] }> {
   try {
     const rateLimitKey = `inquiry:${clientIp || input.email.toLowerCase().trim()}`;
-    const rateLimit = checkRateLimit(rateLimitKey);
+    const rateLimit = await checkDistributedRateLimit(rateLimitKey);
     if (!rateLimit.allowed) {
       return {
         success: false,

@@ -8,7 +8,7 @@ import { AdminRole, PublicationStatus, ProjectType, DevelopmentStatus, Ownership
 import { verifyPassword } from "@/lib/auth/password";
 import { signSessionToken } from "@/lib/auth/jwt";
 import { setSessionCookie, clearSessionCookie, revokeCurrentSession, getSession, requireRole, requireAuth } from "@/lib/auth/session";
-import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/auth/rate-limit";
+import { checkRateLimit, checkDistributedRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/auth/rate-limit";
 import { recordAuditLog } from "@/lib/auth/audit";
 import { 
   createAdminProject, 
@@ -65,9 +65,9 @@ export async function loginAction(
     return { error: "Please provide both email and password." };
   }
 
-  // Rate Limiting Check
+  // Rate Limiting Check (distributed-ready)
   const rateLimitKey = `login:${email}`;
-  const rateLimit = checkRateLimit(rateLimitKey);
+  const rateLimit = await checkDistributedRateLimit(rateLimitKey);
 
   if (!rateLimit.allowed) {
     return {

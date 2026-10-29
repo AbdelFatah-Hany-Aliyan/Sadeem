@@ -35,6 +35,11 @@ export default function Work({ initialProjects, hrefPrefix = "/work" }: WorkProp
   
   // Use server-provided database projects if available, otherwise safely fallback to static baseline
   const displayProjects = initialProjects && initialProjects.length > 0 ? initialProjects : staticProjects;
+  
+  // Guard public navigation: If rendered on public homepage with static baseline (all DB records in DRAFT),
+  // do not link to /work/[slug] (which returns 404). Render as intentional pending case studies instead.
+  // In authenticated /work-preview, or once database records are PUBLISHED, live links are enabled.
+  const isLiveLink = hrefPrefix === "/work-preview" || (initialProjects !== undefined && initialProjects.length > 0);
 
   return (
     <section id="work" className="py-28 bg-background border-t border-border relative overflow-hidden">
@@ -126,12 +131,23 @@ export default function Work({ initialProjects, hrefPrefix = "/work" }: WorkProp
 
                   {/* Title & Tagline */}
                   <div className="mb-4">
-                    <Link href={`${hrefPrefix}/${project.slug || project.id}`} className="block group/link">
-                      <h4 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 group-hover/link:text-accent transition-colors flex items-center justify-between">
-                        <span>{language === "en" ? project.name : (project.arabicName || project.name)}</span>
-                        <ArrowUpRight size={20} className="text-muted group-hover/link:text-accent transition-colors" />
-                      </h4>
-                    </Link>
+                    {isLiveLink ? (
+                      <Link href={`${hrefPrefix}/${project.slug || project.id}`} className="block group/link">
+                        <h4 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 group-hover/link:text-accent transition-colors flex items-center justify-between">
+                          <span>{language === "en" ? project.name : (project.arabicName || project.name)}</span>
+                          <ArrowUpRight size={20} className="text-muted group-hover/link:text-accent transition-colors" />
+                        </h4>
+                      </Link>
+                    ) : (
+                      <div className="block">
+                        <h4 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 flex items-center justify-between gap-2">
+                          <span>{language === "en" ? project.name : (project.arabicName || project.name)}</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-border/80 bg-surface-elevated text-muted uppercase tracking-wider font-normal shrink-0">
+                            {language === "ar" ? "قيد الإعداد للنشر" : "Case Study Pending Release"}
+                          </span>
+                        </h4>
+                      </div>
+                    )}
                     <p className="text-xs sm:text-sm font-medium text-accent">
                       {language === "en" ? project.tagline : project.arabicTagline}
                     </p>
