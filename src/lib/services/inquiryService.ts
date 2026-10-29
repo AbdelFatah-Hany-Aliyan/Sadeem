@@ -120,11 +120,20 @@ function verifySpamSignals(honeypot?: string, formLoadedAt?: number): { isSpam: 
     return { isSpam: true, reason: "HONEYPOT_TRIGGERED" };
   }
 
-  // 2. Submission speed check: Forms submitted in under 1.2 seconds are machine-scripted
+  // 2. Submission speed check: Machine scripts submit in sub-seconds
   if (formLoadedAt && typeof formLoadedAt === "number") {
-    const elapsedMs = Date.now() - formLoadedAt;
-    if (elapsedMs < 1200) {
+    const now = Date.now();
+    const elapsedMs = now - formLoadedAt;
+
+    // Clock drift guard: If client clock is slightly ahead of server clock (e.g., NTP skew up to 60s),
+    // do not trigger false positive. Only flag if elapsed time is positive and sub-second (<1200ms).
+    if (elapsedMs >= 0 && elapsedMs < 1200) {
       return { isSpam: true, reason: "SUBMISSION_TOO_FAST" };
+    }
+
+    // Absurd future timestamp (>1 hour in future) indicates spoofed payload
+    if (formLoadedAt > now + 60 * 60 * 1000) {
+      return { isSpam: true, reason: "SPOOFED_FUTURE_TIMESTAMP" };
     }
   }
 

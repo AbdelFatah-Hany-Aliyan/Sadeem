@@ -2,9 +2,28 @@ import { SignJWT, jwtVerify } from "jose";
 import { AdminRole } from "@prisma/client";
 import { randomUUID } from "crypto";
 
-const DEFAULT_SECRET = "sadeem_super_secret_studio_auth_key_2026_min_32_bytes";
-const JWT_SECRET = process.env.AUTH_SECRET || process.env.JWT_SECRET || DEFAULT_SECRET;
-const key = new TextEncoder().encode(JWT_SECRET);
+const DEFAULT_DEV_SECRET = "sadeem_dev_secret_studio_auth_key_2026_min_32_bytes";
+
+function getJwtKey(): Uint8Array {
+  const secret = process.env.AUTH_SECRET || process.env.JWT_SECRET;
+  
+  if (process.env.NODE_ENV === "production") {
+    if (!secret) {
+      throw new Error(
+        "CRITICAL SECURITY CONFIGURATION ERROR: AUTH_SECRET or JWT_SECRET must be configured in production environment variables."
+      );
+    }
+    if (secret.length < 32) {
+      throw new Error(
+        "CRITICAL SECURITY CONFIGURATION ERROR: AUTH_SECRET must be at least 32 characters long in production."
+      );
+    }
+    return new TextEncoder().encode(secret);
+  }
+
+  // Development & testing fallback
+  return new TextEncoder().encode(secret || DEFAULT_DEV_SECRET);
+}
 
 export interface AdminSessionPayload {
   userId: string;
@@ -43,7 +62,7 @@ export async function signSessionToken(payload: {
     .setJti(jti)
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
-    .sign(key);
+    .sign(getJwtKey());
 }
 
 /**
@@ -52,7 +71,7 @@ export async function signSessionToken(payload: {
  */
 export async function verifySessionToken(token: string): Promise<AdminSessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, key, {
+    const { payload } = await jwtVerify(token, getJwtKey(), {
       algorithms: ["HS256"],
     });
 

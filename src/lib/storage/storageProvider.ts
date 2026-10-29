@@ -136,8 +136,34 @@ export function validateUploadFile(file: {
     ) {
       return { valid: false, error: "Upload rejected: File content does not match GIF header." };
     }
+  } else if (normalizedMime === "image/webp") {
+    // WebP magic bytes: RIFF (bytes 0-3) and WEBP (bytes 8-11)
+    if (
+      file.buffer.length < 12 ||
+      file.buffer[0] !== 0x52 || // R
+      file.buffer[1] !== 0x49 || // I
+      file.buffer[2] !== 0x46 || // F
+      file.buffer[3] !== 0x46 || // F
+      file.buffer[8] !== 0x57 || // W
+      file.buffer[9] !== 0x45 || // E
+      file.buffer[10] !== 0x42 || // B
+      file.buffer[11] !== 0x50   // P
+    ) {
+      return { valid: false, error: "Upload rejected: File content does not match WebP container header." };
+    }
   } else if (normalizedMime === "image/svg+xml") {
-    // SVG Content Security Inspection: prevent Stored XSS via embedded scripts or entities
+    // Production Safety: Untrusted SVG uploads are disabled by default in production
+    // unless an isolated sandbox delivery domain is explicitly approved via ALLOW_UNTRUSTED_SVG=true.
+    const isSvgExplicitlyAllowed = process.env.ALLOW_UNTRUSTED_SVG === "true";
+    if (process.env.NODE_ENV === "production" && !isSvgExplicitlyAllowed) {
+      return {
+        valid: false,
+        error:
+          "Upload rejected: SVG vector uploads are disabled by default in production due to script execution risks. Upload raster images (WebP, PNG, JPEG) or configure ALLOW_UNTRUSTED_SVG=true with an isolated CDN domain.",
+      };
+    }
+
+    // Content Security Inspection (Defense-in-Depth): prevent Stored XSS via embedded scripts or entities
     const svgContent = file.buffer.toString("utf-8").toLowerCase();
     
     if (!svgContent.includes("<svg")) {
