@@ -11,7 +11,8 @@ import {
   ArrowUpRight,
   ExternalLink,
   FileText,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Inbox
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +72,13 @@ export default async function AdminLayout({
               >
                 <ImageIcon size={14} />
                 Media
+              </Link>
+              <Link
+                href="/admin/inquiries"
+                className="px-3 py-1.5 rounded-lg text-muted hover:text-foreground hover:bg-background/80 transition-colors flex items-center gap-1.5"
+              >
+                <Inbox size={14} />
+                Inquiries
               </Link>
               <Link
                 href="/admin/projects/new"

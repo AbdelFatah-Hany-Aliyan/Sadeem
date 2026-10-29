@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { Sparkles, ArrowRight, ArrowLeft } from "lucide-react";
@@ -43,13 +44,13 @@ export default function CTA() {
               <span className="text-accent text-xs mb-4 font-mono font-bold uppercase tracking-wider">
                 {t.common.forBusinesses}
               </span>
-              <a
-                href="mailto:hello@sadeem.studio?subject=Start%20a%20Project"
+              <Link
+                href="/start-project"
                 className="inline-flex h-14 w-full items-center justify-center bg-accent text-[#0B1220] px-6 text-sm font-bold rounded-lg hover:bg-accent-hover transition-all duration-300 shadow-[0_4px_20px_rgba(194,142,98,0.25)] gap-2 group-hover:scale-[1.02]"
               >
                 <span>{t.common.startProject}</span>
                 {isRtl ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
-              </a>
+              </Link>
             </div>
 
             {/* For Founders */}
@@ -57,13 +58,13 @@ export default function CTA() {
               <span className="text-steel text-xs mb-4 font-mono font-bold uppercase tracking-wider">
                 {t.common.forFounders}
               </span>
-              <a
-                href="mailto:hello@sadeem.studio?subject=Pitch%20an%20Idea"
+              <Link
+                href="/pitch-idea"
                 className="inline-flex h-14 w-full items-center justify-center border border-border bg-surface text-foreground px-6 text-sm font-bold rounded-lg hover:border-steel hover:bg-surface-hover transition-all duration-300 gap-2 group-hover:scale-[1.02]"
               >
                 <span>{t.common.pitchIdea}</span>
                 {isRtl ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
-              </a>
+              </Link>
             </div>
           </div>
         </motion.div>

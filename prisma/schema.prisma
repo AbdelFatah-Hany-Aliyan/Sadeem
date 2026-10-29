@@ -69,8 +69,9 @@ enum MediaType {
 }
 
 enum InquiryType {
-  BUSINESS_SYSTEM
+  BUSINESS_PROJECT
   VENTURE_PITCH
+  BUSINESS_SYSTEM
   PARTNERSHIP
   GENERAL
 }
@@ -78,8 +79,51 @@ enum InquiryType {
 enum InquiryStatus {
   NEW
   REVIEWING
+  QUALIFIED
+  DISCOVERY
+  PROPOSAL
+  ACCEPTED
+  REJECTED
+  CLOSED
   RESPONDED
   ARCHIVED
+}
+
+enum ContactChannel {
+  EMAIL
+  PHONE
+  WHATSAPP
+}
+
+enum VentureStage {
+  IDEA
+  RESEARCH
+  PROTOTYPE
+  MVP
+  EXISTING_PRODUCT
+}
+
+enum ProjectCategory {
+  ENTERPRISE_SYSTEM
+  WEB_PLATFORM
+  MOBILE_APPLICATION
+  ECOSYSTEM_INTEGRATION
+  OTHER
+}
+
+enum ExpectedTimeline {
+  IMMEDIATE
+  ONE_TO_THREE_MONTHS
+  THREE_TO_SIX_MONTHS
+  FLEXIBLE
+}
+
+enum BudgetRange {
+  LESS_THAN_10K
+  TEN_TO_25K
+  TWENTY_FIVE_TO_50K
+  FIFTY_K_PLUS
+  UNDISCLOSED
 }
 
 enum AdminRole {
@@ -307,19 +351,58 @@ model SiteSetting {
 // -----------------------------------------------------------------------------
 
 model Inquiry {
-  id          String        @id @default(cuid())
-  name        String
-  email       String
-  company     String?
-  inquiryType InquiryType   @default(GENERAL)
-  message     String        @db.Text
-  status      InquiryStatus @default(NEW)
-  ipAddress   String?
+  id                  String            @id @default(cuid())
+  inquiryType         InquiryType       @default(GENERAL)
+  status              InquiryStatus     @default(NEW)
+  
+  // Submitter details
+  name                String
+  email               String
+  company             String?
+  contactChannel      ContactChannel    @default(EMAIL)
+  phoneOrHandle       String?
+  locale              String            @default("en") // "en", "ar"
 
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  // Business Project specific fields (Path A: Start a Project)
+  projectCategory     ProjectCategory?
+  problemStatement    String?           @db.Text
+  desiredOutcome      String?           @db.Text
+  expectedTimeline    ExpectedTimeline?
+  budgetRange         BudgetRange?      @default(UNDISCLOSED)
 
+  // Venture Pitch specific fields (Path B: Pitch an Idea)
+  ideaName            String?
+  targetAudience      String?           @db.Text
+  ventureStage        VentureStage?
+  founderExpertise    String?           @db.Text
+  expectedInvolvement String?           @db.Text
+  existingResources   String?           @db.Text
+
+  // Common message / notes
+  message             String?           @db.Text
+  sourceRoute         String?           // e.g. "/start-project", "/pitch-idea", "/#contact"
+
+  // Privacy & Consent Record
+  consentGiven        Boolean           @default(true)
+  consentVersion      String            @default("v1.0-2026")
+  consentGivenAt      DateTime          @default(now())
+  ipAddress           String?
+
+  // Internal CRM / Administrative management (strictly separated from public content)
+  internalNotes       String?           @db.Text
+  assignedToId        String?
+  assignedTo          AdminUser?        @relation("AssignedInquiries", fields: [assignedToId], references: [id], onDelete: SetNull)
+  reviewedAt          DateTime?
+  closedAt            DateTime?
+  followUpDate        DateTime?
+
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([inquiryType])
   @@index([status])
+  @@index([email])
+  @@index([assignedToId])
   @@index([createdAt])
 }
 
@@ -328,20 +411,21 @@ model Inquiry {
 // -----------------------------------------------------------------------------
 
 model AdminUser {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
-  name          String
-  role          AdminRole      @default(EDITOR)
-  isActive      Boolean        @default(true)
-  tokenVersion  Int            @default(1)
-  lastLoginAt   DateTime?
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  passwordHash       String
+  name               String
+  role               AdminRole      @default(EDITOR)
+  isActive           Boolean        @default(true)
+  tokenVersion       Int            @default(1)
+  lastLoginAt        DateTime?
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
-  auditLogs     AuditLog[]
-  revokedTokens RevokedToken[]
+  auditLogs          AuditLog[]
+  revokedTokens      RevokedToken[]
+  assignedInquiries  Inquiry[]      @relation("AssignedInquiries")
 
   @@index([email])
 }

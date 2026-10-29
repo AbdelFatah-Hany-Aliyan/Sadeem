@@ -31,10 +31,10 @@ export default function Footer() {
               {t.footer.navigation}
             </h4>
             <ul className="space-y-3.5 text-sm text-muted">
-              <li><Link href="#work" className="hover:text-accent transition-colors">{t.nav.work}</Link></li>
-              <li><Link href="#capabilities" className="hover:text-accent transition-colors">{t.nav.capabilities}</Link></li>
-              <li><Link href="#studio" className="hover:text-accent transition-colors">{t.nav.studio}</Link></li>
-              <li><Link href="#contact" className="hover:text-accent transition-colors">{t.nav.contact}</Link></li>
+              <li><Link href="/#work" className="hover:text-accent transition-colors">{t.nav.work}</Link></li>
+              <li><Link href="/#capabilities" className="hover:text-accent transition-colors">{t.nav.capabilities}</Link></li>
+              <li><Link href="/#studio" className="hover:text-accent transition-colors">{t.nav.studio}</Link></li>
+              <li><Link href="/contact" className="hover:text-accent transition-colors">{t.nav.contact}</Link></li>
             </ul>
           </div>
           

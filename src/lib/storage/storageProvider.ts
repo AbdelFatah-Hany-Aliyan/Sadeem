@@ -136,6 +136,36 @@ export function validateUploadFile(file: {
     ) {
       return { valid: false, error: "Upload rejected: File content does not match GIF header." };
     }
+  } else if (normalizedMime === "image/svg+xml") {
+    // SVG Content Security Inspection: prevent Stored XSS via embedded scripts or entities
+    const svgContent = file.buffer.toString("utf-8").toLowerCase();
+    
+    if (!svgContent.includes("<svg")) {
+      return { valid: false, error: "Upload rejected: File does not appear to be a valid SVG document." };
+    }
+
+    const dangerousPatterns = [
+      "<script",
+      "</script>",
+      "javascript:",
+      "onload=",
+      "onerror=",
+      "onclick=",
+      "onmouseover=",
+      "<foreignobject",
+      "<iframe",
+      "<!entity",
+      "<!doctype"
+    ];
+
+    for (const pattern of dangerousPatterns) {
+      if (svgContent.includes(pattern)) {
+        return {
+          valid: false,
+          error: `Upload rejected: SVG contains forbidden executable markup or entity declaration ('${pattern}').`,
+        };
+      }
+    }
   }
 
   return { valid: true };

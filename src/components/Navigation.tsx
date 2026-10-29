@@ -25,10 +25,10 @@ export default function Navigation() {
   }, []);
 
   const navItems = [
-    { label: t.nav.work, href: "#work" },
-    { label: t.nav.capabilities, href: "#capabilities" },
-    { label: t.nav.studio, href: "#studio" },
-    { label: t.nav.contact, href: "#contact" },
+    { label: t.nav.work, href: "/#work" },
+    { label: t.nav.capabilities, href: "/#capabilities" },
+    { label: t.nav.studio, href: "/#studio" },
+    { label: t.nav.contact, href: "/contact" },
   ];
 
   // Handle escape key and body scroll lock

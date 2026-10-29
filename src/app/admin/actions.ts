@@ -1,9 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { AdminRole, PublicationStatus, ProjectType, DevelopmentStatus, OwnershipType, PartnershipStatus } from "@prisma/client";
+import { AdminRole, PublicationStatus, ProjectType, DevelopmentStatus, OwnershipType, PartnershipStatus, InquiryStatus, InquiryType, MediaType } from "@prisma/client";
 import { verifyPassword } from "@/lib/auth/password";
 import { signSessionToken } from "@/lib/auth/jwt";
 import { setSessionCookie, clearSessionCookie, revokeCurrentSession, getSession, requireRole, requireAuth } from "@/lib/auth/session";
@@ -30,7 +31,18 @@ import {
   deleteMediaAsset,
 } from "@/lib/services/mediaService";
 import { uploadFileToStorage } from "@/lib/storage/storageProvider";
-import { MediaType } from "@prisma/client";
+import {
+  submitBusinessProjectInquiry,
+  submitVenturePitchInquiry,
+  submitGeneralInquiry,
+  updateInquiryStatus,
+  assignInquiry,
+  updateInquiryInternalNotes,
+  archiveOrDeleteInquiry,
+  BusinessProjectFormInput,
+  VenturePitchFormInput,
+  GeneralInquiryFormInput,
+} from "@/lib/services/inquiryService";
 
 export interface FormState {
   success?: boolean;
@@ -548,5 +560,152 @@ export async function deleteMediaAction(mediaId: string): Promise<FormState> {
     return { success: true };
   } catch (error: any) {
     return { error: error.message || "Failed to delete media asset." };
+  }
+}
+
+/**
+ * =============================================================================
+ * Client Inquiries & Lead Management Server Actions
+ * =============================================================================
+ */
+
+function getClientIp(): string | undefined {
+  try {
+    const headerList = headers();
+    const forwarded = headerList.get("x-forwarded-for");
+    if (forwarded) return forwarded.split(",")[0].trim();
+    return headerList.get("x-real-ip") || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Public Server Action: Submit Business Project Inquiry (Start a Project)
+ */
+export async function submitBusinessProjectAction(input: BusinessProjectFormInput): Promise<FormState & { inquiryId?: string }> {
+  try {
+    const ip = getClientIp();
+    const res = await submitBusinessProjectInquiry(input, ip);
+    if (!res.success) {
+      return { success: false, errors: res.errors };
+    }
+    return { success: true, inquiryId: res.inquiryId };
+  } catch (error: any) {
+    console.error("submitBusinessProjectAction error:", error);
+    return { error: error.message || "Failed to process inquiry submission." };
+  }
+}
+
+/**
+ * Public Server Action: Submit Venture Pitch Inquiry (Pitch an Idea)
+ */
+export async function submitVenturePitchAction(input: VenturePitchFormInput): Promise<FormState & { inquiryId?: string }> {
+  try {
+    const ip = getClientIp();
+    const res = await submitVenturePitchInquiry(input, ip);
+    if (!res.success) {
+      return { success: false, errors: res.errors };
+    }
+    return { success: true, inquiryId: res.inquiryId };
+  } catch (error: any) {
+    console.error("submitVenturePitchAction error:", error);
+    return { error: error.message || "Failed to process pitch submission." };
+  }
+}
+
+/**
+ * Public Server Action: Submit General Contact Inquiry
+ */
+export async function submitGeneralInquiryAction(input: GeneralInquiryFormInput): Promise<FormState & { inquiryId?: string }> {
+  try {
+    const ip = getClientIp();
+    const res = await submitGeneralInquiry(input, ip);
+    if (!res.success) {
+      return { success: false, errors: res.errors };
+    }
+    return { success: true, inquiryId: res.inquiryId };
+  } catch (error: any) {
+    console.error("submitGeneralInquiryAction error:", error);
+    return { error: error.message || "Failed to process general inquiry." };
+  }
+}
+
+/**
+ * Admin Server Action: Update Inquiry Pipeline Status
+ */
+export async function updateInquiryStatusAction(id: string, newStatus: InquiryStatus): Promise<FormState> {
+  try {
+    const session = await requireAuth();
+    const res = await updateInquiryStatus(id, newStatus, session);
+    if (!res.success) {
+      return { success: false, errors: res.errors };
+    }
+
+    revalidatePath("/admin/inquiries");
+    revalidatePath(`/admin/inquiries/${id}`);
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "Failed to update inquiry status." };
+  }
+}
+
+/**
+ * Admin Server Action: Assign Inquiry to Team Member
+ */
+export async function assignInquiryAction(id: string, assignedToId: string | null): Promise<FormState> {
+  try {
+    const session = await requireAuth();
+    const res = await assignInquiry(id, assignedToId, session);
+    if (!res.success) {
+      return { success: false, errors: res.errors };
+    }
+
+    revalidatePath("/admin/inquiries");
+    revalidatePath(`/admin/inquiries/${id}`);
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "Failed to update inquiry assignment." };
+  }
+}
+
+/**
+ * Admin Server Action: Update Inquiry Internal Notes & Follow-up Date
+ */
+export async function updateInquiryNotesAction(
+  id: string,
+  internalNotes: string,
+  followUpDate: Date | null
+): Promise<FormState> {
+  try {
+    const session = await requireAuth();
+    const res = await updateInquiryInternalNotes(id, internalNotes, followUpDate, session);
+    if (!res.success) {
+      return { success: false, errors: res.errors };
+    }
+
+    revalidatePath("/admin/inquiries");
+    revalidatePath(`/admin/inquiries/${id}`);
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "Failed to update internal notes." };
+  }
+}
+
+/**
+ * Admin Server Action: Archive or Delete Inquiry (SUPER_ADMIN only)
+ */
+export async function archiveInquiryAction(id: string, permanentDelete: boolean = false): Promise<FormState> {
+  try {
+    const session = await requireAuth();
+    const res = await archiveOrDeleteInquiry(id, session, permanentDelete);
+    if (!res.success) {
+      return { success: false, errors: res.errors };
+    }
+
+    revalidatePath("/admin/inquiries");
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "Failed to archive or delete inquiry." };
   }
 }
