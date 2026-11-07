@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getSession } from "@/lib/auth/session";
+import { getSession, CurrentUserSession } from "@/lib/auth/session";
 import { logoutAction } from "@/app/admin/actions";
 import { 
   LayoutDashboard, 
@@ -8,6 +8,7 @@ import {
   Eye, 
   LogOut, 
   Shield, 
+  ShieldAlert,
   ArrowUpRight,
   ExternalLink,
   FileText,
@@ -22,7 +23,35 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getSession();
+  let session: CurrentUserSession | null = null;
+  try {
+    session = await getSession();
+  } catch (error: any) {
+    if (error?.isInfrastructureError || error?.name === "AuthInfrastructureError") {
+      return (
+        <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-6 py-20">
+          <div className="max-w-md w-full p-8 rounded-2xl border border-border bg-surface/90 backdrop-blur-md text-center space-y-4 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-accent/10 border border-accent/30 text-accent flex items-center justify-center mx-auto">
+              <ShieldAlert size={24} />
+            </div>
+            <h2 className="text-lg font-bold text-foreground">Authentication Dependency Unavailable</h2>
+            <p className="text-xs text-muted leading-relaxed">
+              The database connection timed out or is temporarily unreachable while validating your session. Your credentials and session remain safe.
+            </p>
+            <div className="pt-2">
+              <a
+                href="/admin"
+                className="inline-block px-5 py-2.5 rounded-xl bg-accent text-accent-foreground font-mono text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-sm"
+              >
+                Retry Connection
+              </a>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    throw error;
+  }
 
   // If user is on the login page or unauthenticated, let child pages handle login view
   if (!session) {

@@ -1,6 +1,6 @@
 /**
  * SADEEM STUDIO — SECURE OBJECT STORAGE ABSTRACTION
- * 
+ *
  * Provides an external object-storage provider abstraction (AWS S3, Cloudflare R2, MinIO).
  * Enforces:
  * 1. Safe storage keys (UUID-prefixed, path traversal prevention, date-partitioned).
@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export interface StorageStatus {
@@ -191,7 +191,7 @@ export function validateUploadFile(file: {
 
     // Content Security Inspection (Defense-in-Depth): prevent Stored XSS via embedded scripts or entities
     const svgContent = file.buffer.toString("utf-8").toLowerCase();
-    
+
     if (!svgContent.includes("<svg")) {
       return { valid: false, error: "Upload rejected: File does not appear to be a valid SVG document." };
     }
@@ -231,6 +231,8 @@ export async function uploadFileToStorage(file: {
   buffer: Buffer;
   filename: string;
   mimeType: string;
+  customKey?: string;
+  keyPrefix?: string;
 }): Promise<StorageUploadResult> {
   const validation = validateUploadFile(file);
   if (!validation.valid) {
@@ -248,7 +250,15 @@ export async function uploadFileToStorage(file: {
   const year = now.getUTCFullYear();
   const month = String(now.getUTCMonth() + 1).padStart(2, "0");
   const cleanName = sanitizeStorageFilename(file.filename);
-  const storageKey = `projects/${year}/${month}/${randomUUID()}-${cleanName}`;
+
+  let storageKey: string;
+  if (file.customKey) {
+    storageKey = file.customKey;
+  } else if (file.keyPrefix) {
+    storageKey = `${file.keyPrefix.replace(/\/$/, "")}/${randomUUID()}-${cleanName}`;
+  } else {
+    storageKey = `projects/${year}/${month}/${randomUUID()}-${cleanName}`;
+  }
 
   const s3 = getS3Client();
 
@@ -288,6 +298,86 @@ export async function uploadFileToStorage(file: {
     mimeType: file.mimeType,
     sizeBytes: file.buffer.length,
   };
+}
+
+/**
+ * Generates a presigned GET URL for an object key.
+ */
+export async function getSignedDownloadUrl(
+  storageKey: string,
+  expiresInSeconds: number = 3600
+): Promise<string> {
+  const status = getStorageStatus();
+  if (!status.configured) {
+    throw new Error("STORAGE_BLOCKED: Media storage provider is not configured.");
+  }
+
+  const s3 = getS3Client();
+  const getCmd = new GetObjectCommand({
+    Bucket: status.bucket,
+    Key: storageKey,
+  });
+
+  return await getSignedUrl(s3, getCmd, { expiresIn: expiresInSeconds });
+}
+
+/**
+ * Downloads raw object bytes from external storage.
+ */
+export async function downloadFileFromStorage(storageKey: string): Promise<Buffer> {
+  const status = getStorageStatus();
+  if (!status.configured) {
+    throw new Error("STORAGE_BLOCKED: Media storage provider is not configured.");
+  }
+
+  const s3 = getS3Client();
+  const getCmd = new GetObjectCommand({
+    Bucket: status.bucket,
+    Key: storageKey,
+  });
+
+  const res = await s3.send(getCmd);
+  const byteArray = await res.Body?.transformToByteArray();
+  if (!byteArray) {
+    throw new Error(`Failed to read object body from storage for key: ${storageKey}`);
+  }
+
+  return Buffer.from(byteArray);
+}
+
+/**
+ * Checks whether an object exists in external storage.
+ */
+export async function checkFileExistsInStorage(storageKey: string): Promise<boolean> {
+  const status = getStorageStatus();
+  if (!status.configured) {
+    return false;
+  }
+
+  try {
+    const s3 = getS3Client();
+    await s3.send(
+      new HeadObjectCommand({
+        Bucket: status.bucket,
+        Key: storageKey,
+      })
+    );
+    return true;
+  } catch (error: any) {
+    if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Returns the raw, unsigned direct endpoint URL for an object key.
+ */
+export function getDirectObjectUrl(storageKey: string): string {
+  const status = getStorageStatus();
+  const endpoint = status.endpoint || (status.bucket ? `https://${status.bucket}.s3.amazonaws.com` : "");
+  return `${endpoint.replace(/\/$/, "")}/${status.bucket}/${storageKey}`;
 }
 
 /**

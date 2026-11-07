@@ -6,14 +6,14 @@ import WhySadeem from "@/components/sections/WhySadeem";
 import HowWeWork from "@/components/sections/HowWeWork";
 import About from "@/components/sections/About";
 import CTA from "@/components/sections/CTA";
-import { getPublishedProjects } from "@/lib/services/projectService";
+import { getCachedPublishedProjects } from "@/lib/services/projectService";
 
 // Incremental Static Regeneration (ISR): periodically revalidates portfolio data from database
 export const revalidate = 60;
 
 export default async function Home() {
   // Safe server-side fetch: only queries PUBLISHED projects (DRAFT records strictly excluded)
-  const publishedProjects = await getPublishedProjects();
+  const publishedProjects = await getCachedPublishedProjects();
 
   return (
     <>

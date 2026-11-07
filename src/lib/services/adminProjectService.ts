@@ -531,20 +531,18 @@ export async function archiveAdminProject(
 
 /**
  * Retrieves real administrative stats (No invented analytics, real DB counts only).
+ * Optimized to aggregate project statuses in a single query via groupBy instead of 4 separate count queries.
  */
 export async function getAdminDashboardStats() {
   const [
-    totalProjects,
-    draftProjects,
-    publishedProjects,
-    archivedProjects,
+    statusCounts,
     totalTechnologies,
     recentAuditLogs,
   ] = await Promise.all([
-    prisma.project.count(),
-    prisma.project.count({ where: { publicationStatus: PublicationStatus.DRAFT } }),
-    prisma.project.count({ where: { publicationStatus: PublicationStatus.PUBLISHED } }),
-    prisma.project.count({ where: { publicationStatus: PublicationStatus.ARCHIVED } }),
+    prisma.project.groupBy({
+      by: ["publicationStatus"],
+      _count: { _all: true },
+    }),
     prisma.technology.count(),
     prisma.auditLog.findMany({
       take: 10,
@@ -554,6 +552,19 @@ export async function getAdminDashboardStats() {
       },
     }),
   ]);
+
+  let draftProjects = 0;
+  let publishedProjects = 0;
+  let archivedProjects = 0;
+  let totalProjects = 0;
+
+  for (const item of statusCounts) {
+    const count = item._count._all;
+    totalProjects += count;
+    if (item.publicationStatus === PublicationStatus.DRAFT) draftProjects = count;
+    else if (item.publicationStatus === PublicationStatus.PUBLISHED) publishedProjects = count;
+    else if (item.publicationStatus === PublicationStatus.ARCHIVED) archivedProjects = count;
+  }
 
   return {
     totalProjects,

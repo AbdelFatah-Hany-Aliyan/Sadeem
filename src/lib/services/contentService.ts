@@ -17,6 +17,7 @@ import { ar } from "@/content/ar";
 import { Content } from "@/content";
 import { CurrentUserSession } from "@/lib/auth/session";
 import { recordAuditLog } from "@/lib/auth/audit";
+import { unstable_cache } from "next/cache";
 
 export interface AdminContentSectionSummary {
   id: string;
@@ -159,6 +160,34 @@ export async function getPublishedWebsiteContent(locale: "en" | "ar"): Promise<C
   } catch (error) {
     console.error(`Error loading published content for ${locale}:`, error);
     return baseline;
+  }
+}
+
+const internalCachedPublishedContent = unstable_cache(
+  async (locale: "en" | "ar"): Promise<Content> => {
+    return getPublishedWebsiteContent(locale);
+  },
+  ["published-website-content"],
+  {
+    tags: ["cms-content"],
+    revalidate: 3600,
+  }
+);
+
+/**
+ * Public Cached Content Retrieval:
+ * Reads from Next.js Data Cache tagged with 'cms-content'.
+ * Instant sub-millisecond retrieval with on-demand invalidation via revalidateTag("cms-content").
+ * Transparently falls back to direct query if executed outside Next.js runtime (e.g. tests/scripts).
+ */
+export async function getCachedPublishedWebsiteContent(locale: "en" | "ar"): Promise<Content> {
+  try {
+    return await internalCachedPublishedContent(locale);
+  } catch (err: any) {
+    if (err?.message?.includes("incrementalCache missing")) {
+      return getPublishedWebsiteContent(locale);
+    }
+    throw err;
   }
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { projects as staticProjects, Project } from "@/data/projects";
 import { ProjectDTO } from "@/lib/types/portfolio";
@@ -32,6 +32,7 @@ function resolveProjectIcon(project: ProjectDTO | Project): React.ElementType {
 
 export default function Work({ initialProjects, hrefPrefix = "/work" }: WorkProps) {
   const { t, language } = useLanguage();
+  const shouldReduceMotion = useReducedMotion();
   
   // Use server-provided database projects if available, otherwise safely fallback to static baseline
   const displayProjects = initialProjects && initialProjects.length > 0 ? initialProjects : staticProjects;
@@ -49,7 +50,13 @@ export default function Work({ initialProjects, hrefPrefix = "/work" }: WorkProp
       <div className="container mx-auto px-6 md:px-12 relative z-10">
         
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-20 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="flex flex-col md:flex-row md:items-end justify-between mb-20 gap-6"
+        >
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-accent/30 bg-accent/10 text-xs font-mono text-accent uppercase tracking-widest mb-4">
               {t.work.label}
@@ -61,7 +68,7 @@ export default function Work({ initialProjects, hrefPrefix = "/work" }: WorkProp
               {t.work.subtitle || "Real systems and proprietary ventures developed by Sadeem."}
             </p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Dynamic Projects Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -76,7 +83,8 @@ export default function Work({ initialProjects, hrefPrefix = "/work" }: WorkProp
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.7, delay: idx * 0.12, ease: [0.22, 1, 0.36, 1] }}
-                whileHover={{ y: -6 }}
+                whileHover={shouldReduceMotion ? {} : { y: -6 }}
+                whileTap={shouldReduceMotion ? {} : { scale: 0.99 }}
                 className="group rounded-2xl border border-border bg-surface/90 backdrop-blur-md p-8 sm:p-10 relative overflow-hidden transition-all duration-300 hover:border-accent/50 hover:shadow-[0_15px_35px_rgba(194,142,98,0.12)] flex flex-col justify-between"
               >
                 {/* Subtle top metallic accent line */}

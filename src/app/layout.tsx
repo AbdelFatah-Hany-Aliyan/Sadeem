@@ -4,7 +4,7 @@ import "./globals.css";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Providers } from "@/providers/Providers";
-import { getPublishedWebsiteContent } from "@/lib/services/contentService";
+import { getCachedPublishedWebsiteContent } from "@/lib/services/contentService";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,10 +28,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Load published content from PostgreSQL (with static baseline fallback)
+  // Load published content from Next.js Data Cache (with static baseline fallback)
   const [publishedEn, publishedAr] = await Promise.all([
-    getPublishedWebsiteContent("en"),
-    getPublishedWebsiteContent("ar"),
+    getCachedPublishedWebsiteContent("en"),
+    getCachedPublishedWebsiteContent("ar"),
   ]);
 
   return (

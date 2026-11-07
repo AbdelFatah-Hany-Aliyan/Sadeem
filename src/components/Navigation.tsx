@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
@@ -14,6 +14,7 @@ export default function Navigation() {
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     setMounted(true);
@@ -93,22 +94,26 @@ export default function Navigation() {
             </nav>
             
             <div className="flex items-center gap-4 border-l rtl:border-l-0 rtl:border-r border-border pl-8 rtl:pl-0 rtl:pr-8">
-              <button
+              <motion.button
                 onClick={() => setLanguage(language === "en" ? "ar" : "en")}
+                whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+                whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
                 aria-label="Toggle language"
                 className="text-xs font-mono font-medium px-3 py-1.5 rounded border border-border hover:border-accent text-foreground hover:text-accent transition-colors"
               >
                 {language === "en" ? "العربية" : "EN"}
-              </button>
+              </motion.button>
               
               {mounted && (
-                <button
+                <motion.button
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  whileHover={shouldReduceMotion ? {} : { scale: 1.08, rotate: 15 }}
+                  whileTap={shouldReduceMotion ? {} : { scale: 0.92 }}
                   aria-label="Toggle theme"
                   className="p-2 rounded border border-border hover:border-accent text-foreground hover:text-accent transition-colors flex items-center justify-center"
                 >
                   {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-                </button>
+                </motion.button>
               )}
             </div>
           </div>
@@ -177,23 +182,27 @@ export default function Navigation() {
               transition={{ delay: 0.2, duration: 0.4 }}
               className="flex items-center gap-6"
             >
-              <button
+              <motion.button
                 onClick={() => {
                   setLanguage(language === "en" ? "ar" : "en");
                 }}
+                whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+                whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
                 className="text-sm font-mono px-4 py-2 rounded-lg border border-border hover:border-accent text-foreground hover:text-accent transition-colors"
               >
                 {language === "en" ? "العربية" : "English"}
-              </button>
+              </motion.button>
               
               {mounted && (
-                <button
+                <motion.button
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  whileHover={shouldReduceMotion ? {} : { scale: 1.08, rotate: 15 }}
+                  whileTap={shouldReduceMotion ? {} : { scale: 0.92 }}
                   aria-label="Toggle theme"
                   className="text-foreground hover:text-accent transition-colors flex items-center justify-center p-2.5 border border-border hover:border-accent rounded-lg"
                 >
                   {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
+                </motion.button>
               )}
             </motion.div>
             

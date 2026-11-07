@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Activity, ArrowRight, ArrowLeft } from "lucide-react";
 import { useLanguage } from "@/providers/LanguageProvider";
 
 export default function DualEngine() {
   const { t, language } = useLanguage();
+  const shouldReduceMotion = useReducedMotion();
   const [activeEngine, setActiveEngine] = useState<"engine1" | "engine2" | "synergy">("synergy");
   const isRtl = language === "ar";
   
@@ -29,8 +30,10 @@ export default function DualEngine() {
 
           {/* Interactive Mode Selector */}
           <div className="inline-flex p-1.5 rounded-xl border border-border bg-surface/80 backdrop-blur-md mt-8 shadow-sm">
-            <button
+            <motion.button
               onClick={() => setActiveEngine("engine1")}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
               className={`px-4 py-2 rounded-lg text-xs font-mono font-medium transition-all duration-300 ${
                 activeEngine === "engine1"
                   ? "bg-steel text-white shadow-md"
@@ -38,9 +41,11 @@ export default function DualEngine() {
               }`}
             >
               {t.dualEngine.tabSystems || "Systems"}
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               onClick={() => setActiveEngine("synergy")}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
               className={`px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all duration-300 ${
                 activeEngine === "synergy"
                   ? "bg-accent text-[#0B1220] shadow-md"
@@ -48,9 +53,11 @@ export default function DualEngine() {
               }`}
             >
               {t.dualEngine.tabSynergy || "Synergy Loop"}
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               onClick={() => setActiveEngine("engine2")}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
               className={`px-4 py-2 rounded-lg text-xs font-mono font-medium transition-all duration-300 ${
                 activeEngine === "engine2"
                   ? "bg-accent text-[#0B1220] shadow-md"
@@ -58,7 +65,7 @@ export default function DualEngine() {
               }`}
             >
               {t.dualEngine.tabVentures || "Ventures"}
-            </button>
+            </motion.button>
           </div>
         </div>
 

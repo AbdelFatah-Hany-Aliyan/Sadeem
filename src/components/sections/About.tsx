@@ -1,11 +1,12 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { Compass, Target } from "lucide-react";
 
 export default function About() {
   const { t, language } = useLanguage();
+  const shouldReduceMotion = useReducedMotion();
   
   return (
     <section id="about" className="py-28 bg-background border-t border-border relative overflow-hidden">
@@ -40,6 +41,7 @@ export default function About() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={shouldReduceMotion ? {} : { y: -4 }}
             className="p-8 sm:p-10 rounded-2xl border border-border bg-surface/80 backdrop-blur-md relative overflow-hidden hover:border-steel/50 transition-colors shadow-sm"
           >
             <div className="flex items-center gap-3 mb-6">
@@ -61,6 +63,7 @@ export default function About() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={shouldReduceMotion ? {} : { y: -4 }}
             className="p-8 sm:p-10 rounded-2xl border border-border bg-surface/80 backdrop-blur-md relative overflow-hidden hover:border-accent/50 transition-colors shadow-sm"
           >
             <div className="flex items-center gap-3 mb-6">

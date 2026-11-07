@@ -31,13 +31,17 @@ export default function Hero() {
     <section className="relative min-h-[92vh] flex items-center pt-28 pb-16 overflow-hidden">
       {/* Dynamic Ambient Nebula Glows */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-        <div 
-          className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full blur-[140px] opacity-20 transition-opacity duration-1000"
-          style={{ backgroundColor: "#C28E62" }} 
+        <motion.div
+          animate={shouldReduceMotion ? {} : { scale: [1, 1.08, 1], opacity: [0.18, 0.26, 0.18] }}
+          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full blur-[140px]"
+          style={{ backgroundColor: "#C28E62" }}
         />
-        <div 
-          className="absolute bottom-1/4 right-1/4 w-[450px] h-[450px] rounded-full blur-[130px] opacity-15 transition-opacity duration-1000"
-          style={{ backgroundColor: "#527C91" }} 
+        <motion.div
+          animate={shouldReduceMotion ? {} : { scale: [1.08, 1, 1.08], opacity: [0.14, 0.22, 0.14] }}
+          transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-1/4 right-1/4 w-[450px] h-[450px] rounded-full blur-[130px]"
+          style={{ backgroundColor: "#527C91" }}
         />
         {/* Subtle Architectural Grid */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(194,142,98,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(82,124,145,0.04)_1px,transparent_1px)] bg-[size:80px_80px] [mask-image:radial-gradient(ellipse_75%_75%_at_50%_50%,black_30%,transparent_100%)]" />
@@ -45,7 +49,7 @@ export default function Hero() {
 
       <div className="container mx-auto px-6 md:px-12 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-          
+
           {/* Main Content (Left in LTR, Right in RTL) */}
           <div className="lg:col-span-7">
             {/* Tagline Pill */}
@@ -97,9 +101,11 @@ export default function Hero() {
               transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
               className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
             >
-              <a
+              <motion.a
                 href="#work"
-                className="inline-flex h-14 items-center justify-center bg-accent text-[#0B1220] px-8 font-bold text-sm tracking-wide rounded-lg hover:bg-accent-hover transition-all duration-300 shadow-[0_4px_20px_rgba(194,142,98,0.25)] group"
+                whileHover={shouldReduceMotion ? {} : { scale: 1.02, y: -1 }}
+                whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
+                className="inline-flex h-14 items-center justify-center bg-accent text-[#0B1220] px-8 font-bold text-sm tracking-wide rounded-lg hover:bg-accent-hover transition-colors shadow-[0_4px_20px_rgba(194,142,98,0.25)] group"
               >
                 <span>{t.common.exploreWork}</span>
                 {isRtl ? (
@@ -107,18 +113,20 @@ export default function Hero() {
                 ) : (
                   <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
                 )}
-              </a>
-              <a
+              </motion.a>
+              <motion.a
                 href="#contact"
-                className="inline-flex h-14 items-center justify-center border border-border bg-surface/60 backdrop-blur-md text-foreground px-8 font-medium text-sm rounded-lg hover:border-accent hover:bg-surface-hover transition-all duration-300"
+                whileHover={shouldReduceMotion ? {} : { scale: 1.02, y: -1 }}
+                whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
+                className="inline-flex h-14 items-center justify-center border border-border bg-surface/60 backdrop-blur-md text-foreground px-8 font-medium text-sm rounded-lg hover:border-accent hover:bg-surface-hover transition-colors"
               >
                 {t.common.startProject}
-              </a>
+              </motion.a>
             </motion.div>
           </div>
 
           {/* Kinetic Signature Visual: Idea -> Structure -> System -> Product */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
@@ -163,7 +171,7 @@ export default function Hero() {
                     {/* Stage 01: Idea & Spark */}
                     {activePhase === 0 && (
                       <div className="relative w-40 h-40 flex items-center justify-center">
-                        <motion.div 
+                        <motion.div
                           animate={shouldReduceMotion ? {} : { scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
                           transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
                           className="absolute inset-0 rounded-full border border-dashed border-accent/40"
@@ -190,7 +198,7 @@ export default function Hero() {
                     {/* Stage 03: System & Engineering */}
                     {activePhase === 2 && (
                       <div className="relative w-44 h-44 flex items-center justify-center">
-                        <motion.div 
+                        <motion.div
                           animate={shouldReduceMotion ? {} : { rotate: 360 }}
                           transition={{ duration: 16, repeat: Infinity, ease: "linear" }}
                           className="w-36 h-36 border border-sage/40 rounded-xl flex items-center justify-center"
@@ -223,12 +231,14 @@ export default function Hero() {
               {/* Interactive Phase Selector */}
               <div className="grid grid-cols-4 gap-2">
                 {phases.map((phase: { num: string; title: string; desc: string }, i: number) => (
-                  <button
+                  <motion.button
                     key={phase.num}
                     onClick={() => setActivePhase(i)}
+                    whileHover={shouldReduceMotion ? {} : { scale: 1.03 }}
+                    whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
                     className={`py-2 px-1 text-center rounded-lg transition-all duration-300 border flex flex-col items-center ${
-                      activePhase === i 
-                        ? "border-accent bg-accent/10 shadow-sm" 
+                      activePhase === i
+                        ? "border-accent bg-accent/10 shadow-sm"
                         : "border-border hover:border-steel/50"
                     }`}
                   >
@@ -236,7 +246,7 @@ export default function Hero() {
                     <span className="text-xs font-semibold truncate w-full text-center">
                       {phase.title.split(" ")[0]}
                     </span>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
 

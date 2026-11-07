@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { unstable_cache } from "next/cache";
 import { 
   Project as DbProject, 
   ProjectTranslation, 
@@ -338,6 +339,34 @@ export async function getPublishedProjects(): Promise<ProjectDTO[]> {
   } catch (error) {
     console.error("Database query failed in getPublishedProjects():", error);
     return [];
+  }
+}
+
+const internalCachedPublishedProjects = unstable_cache(
+  async (): Promise<ProjectDTO[]> => {
+    return getPublishedProjects();
+  },
+  ["published-projects"],
+  {
+    tags: ["portfolio-projects"],
+    revalidate: 60,
+  }
+);
+
+/**
+ * Public Cached Project Retrieval:
+ * Reads from Next.js Data Cache tagged with 'portfolio-projects'.
+ * Instant sub-millisecond retrieval with on-demand invalidation via revalidateTag("portfolio-projects").
+ * Transparently falls back to direct query if executed outside Next.js runtime (e.g. tests/scripts).
+ */
+export async function getCachedPublishedProjects(): Promise<ProjectDTO[]> {
+  try {
+    return await internalCachedPublishedProjects();
+  } catch (err: any) {
+    if (err?.message?.includes("incrementalCache missing")) {
+      return getPublishedProjects();
+    }
+    throw err;
   }
 }
 

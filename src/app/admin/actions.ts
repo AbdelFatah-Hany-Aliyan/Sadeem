@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { AdminRole, PublicationStatus, ProjectType, DevelopmentStatus, OwnershipType, PartnershipStatus, InquiryStatus, InquiryType, MediaType } from "@prisma/client";
@@ -162,6 +162,8 @@ export async function createProjectAction(data: ProjectFormData): Promise<FormSt
     const session = await requireRole([AdminRole.SUPER_ADMIN, AdminRole.EDITOR]);
     const project = await createAdminProject(data, session);
 
+    revalidateTag("portfolio-projects");
+    revalidatePath("/", "layout");
     revalidatePath("/admin/projects");
     revalidatePath("/work-preview");
     revalidatePath("/");
@@ -184,6 +186,8 @@ export async function updateProjectAction(
     const session = await requireRole([AdminRole.SUPER_ADMIN, AdminRole.EDITOR]);
     await updateAdminProject(id, data, session);
 
+    revalidateTag("portfolio-projects");
+    revalidatePath("/", "layout");
     revalidatePath("/admin/projects");
     revalidatePath(`/admin/projects/${id}/edit`);
     revalidatePath(`/work/${data.slug}`);
@@ -216,6 +220,8 @@ export async function togglePublicationAction(
       };
     }
 
+    revalidateTag("portfolio-projects");
+    revalidatePath("/", "layout");
     revalidatePath("/admin/projects");
     revalidatePath("/work-preview");
     revalidatePath("/");
@@ -242,6 +248,8 @@ export async function archiveProjectAction(id: string): Promise<FormState> {
       };
     }
 
+    revalidateTag("portfolio-projects");
+    revalidatePath("/", "layout");
     revalidatePath("/admin/projects");
     revalidatePath("/work-preview");
     revalidatePath("/");
@@ -296,6 +304,8 @@ export async function publishContentSectionAction(sectionKey: string): Promise<F
       return { success: false, errors: result.errors };
     }
 
+    revalidateTag("cms-content");
+    revalidatePath("/", "layout");
     revalidatePath("/");
     revalidatePath("/admin/content");
     revalidatePath(`/admin/content/${sectionKey}/edit`);
@@ -553,6 +563,8 @@ export async function deleteMediaAction(mediaId: string): Promise<FormState> {
     }
 
     revalidatePath("/admin/media");
+    revalidateTag("portfolio-projects");
+    revalidatePath("/", "layout");
     revalidatePath("/admin/projects");
     revalidatePath("/work-preview");
     revalidatePath("/");
