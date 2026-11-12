@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSession, CurrentUserSession } from "@/lib/auth/session";
 import { logoutAction } from "@/app/admin/actions";
+import { getUnreadNotificationCount } from "@/lib/services/notificationService";
 import { 
   LayoutDashboard, 
   FolderKanban, 
@@ -13,7 +14,10 @@ import {
   ExternalLink,
   FileText,
   Image as ImageIcon,
-  Inbox
+  Inbox,
+  Building2,
+  CheckSquare,
+  Bell
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +62,13 @@ export default async function AdminLayout({
     return <>{children}</>;
   }
 
+  let unreadNotifications = 0;
+  try {
+    unreadNotifications = await getUnreadNotificationCount({ adminUserId: session.id });
+  } catch (e) {
+    // Graceful fallback if notification query fails
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Admin Navigation Bar */}
@@ -80,6 +91,20 @@ export default async function AdminLayout({
               >
                 <LayoutDashboard size={14} />
                 Overview
+              </Link>
+              <Link
+                href="/admin/company"
+                className="px-3 py-1.5 rounded-lg text-muted hover:text-foreground hover:bg-background/80 transition-colors flex items-center gap-1.5"
+              >
+                <Building2 size={14} />
+                Company
+              </Link>
+              <Link
+                href="/admin/my-work"
+                className="px-3 py-1.5 rounded-lg text-muted hover:text-foreground hover:bg-background/80 transition-colors flex items-center gap-1.5"
+              >
+                <CheckSquare size={14} />
+                My Work
               </Link>
               <Link
                 href="/admin/projects"
@@ -120,6 +145,20 @@ export default async function AdminLayout({
           </div>
 
           <div className="flex items-center gap-4 text-xs font-mono">
+            {/* Notifications Bell */}
+            <Link
+              href="/admin/company/notifications"
+              className="relative p-2 rounded-lg border border-border bg-surface hover:border-accent text-muted hover:text-foreground transition-colors"
+              title="Notifications"
+            >
+              <Bell size={14} />
+              {unreadNotifications > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent text-[9px] font-bold text-accent-foreground flex items-center justify-center animate-pulse">
+                  {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                </span>
+              )}
+            </Link>
+
             {/* Direct preview links */}
             <Link
               href="/work-preview"

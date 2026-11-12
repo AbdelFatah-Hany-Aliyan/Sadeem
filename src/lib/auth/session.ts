@@ -7,6 +7,7 @@ import { verifySessionToken, AdminSessionPayload } from "./jwt";
 export const SESSION_COOKIE_NAME = "sadeem_admin_session";
 
 export interface CurrentUserSession extends AdminSessionPayload {
+  id?: string;
   isActive: boolean;
 }
 
@@ -201,6 +202,7 @@ export const getSession = requestCache(async function getSession(): Promise<Curr
     }
 
     return {
+      id: user.id,
       userId: user.id,
       email: user.email,
       name: user.name,
