@@ -17,7 +17,8 @@ import {
   Inbox,
   Building2,
   CheckSquare,
-  Bell
+  Bell,
+  Sparkles
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -105,6 +106,14 @@ export default async function AdminLayout({
               >
                 <CheckSquare size={14} />
                 My Work
+              </Link>
+              <Link
+                href="/admin/company/departments/MARKETING"
+                className="px-3 py-1.5 rounded-lg text-accent/90 hover:text-accent hover:bg-background/80 transition-colors flex items-center gap-1.5"
+                title="Marketing Operations Workspace"
+              >
+                <Sparkles size={14} />
+                Marketing
               </Link>
               <Link
                 href="/admin/projects"

@@ -38,6 +38,13 @@ export type Permission =
   | "recommendations:view_own"
   | "recommendations:create"
   | "recommendations:acknowledge"
+  // Operations Sprint: Comments, Deliverables, Collaboration
+  | "tasks:collaborate"
+  | "tasks:comment"
+  | "tasks:moderate_comments"
+  | "deliverables:submit"
+  | "deliverables:review"
+  | "announcements:broadcast"
   // System & Audit
   | "permissions:manage"
   | "audit:view"
@@ -65,6 +72,12 @@ const ALL_PERMISSIONS: Permission[] = [
   "tasks:update_status",
   "tasks:review",
   "tasks:delete",
+  "tasks:collaborate",
+  "tasks:comment",
+  "tasks:moderate_comments",
+  "deliverables:submit",
+  "deliverables:review",
+  "announcements:broadcast",
   "recommendations:view_all",
   "recommendations:view_team",
   "recommendations:view_own",
@@ -100,6 +113,12 @@ const ROLE_PERMISSIONS: Record<AdminRole, Set<Permission>> = {
     "tasks:update_status",
     "tasks:review",
     "tasks:delete",
+    "tasks:collaborate",
+    "tasks:comment",
+    "tasks:moderate_comments",
+    "deliverables:submit",
+    "deliverables:review",
+    "announcements:broadcast",
     "recommendations:view_all",
     "recommendations:view_team",
     "recommendations:view_own",
@@ -120,6 +139,12 @@ const ROLE_PERMISSIONS: Record<AdminRole, Set<Permission>> = {
     "tasks:assign",
     "tasks:update_status",
     "tasks:review",
+    "tasks:collaborate",
+    "tasks:comment",
+    "tasks:moderate_comments",
+    "deliverables:submit",
+    "deliverables:review",
+    "announcements:broadcast",
     "recommendations:view_team",
     "recommendations:view_own",
     "recommendations:create",
@@ -138,6 +163,10 @@ const ROLE_PERMISSIONS: Record<AdminRole, Set<Permission>> = {
     "tasks:assign",
     "tasks:update_status",
     "tasks:review",
+    "tasks:collaborate",
+    "tasks:comment",
+    "deliverables:submit",
+    "deliverables:review",
     "recommendations:view_all",
     "recommendations:view_own",
     "recommendations:create",
@@ -152,6 +181,9 @@ const ROLE_PERMISSIONS: Record<AdminRole, Set<Permission>> = {
     "tasks:view_team",
     "tasks:view_own",
     "tasks:update_status",
+    "tasks:collaborate",
+    "tasks:comment",
+    "deliverables:submit",
     "recommendations:view_own",
     "recommendations:acknowledge",
   ]),
@@ -165,6 +197,10 @@ const ROLE_PERMISSIONS: Record<AdminRole, Set<Permission>> = {
     "tasks:view_own",
     "tasks:update_status",
     "tasks:review",
+    "tasks:collaborate",
+    "tasks:comment",
+    "deliverables:submit",
+    "deliverables:review",
     "recommendations:view_own",
     "recommendations:acknowledge",
     "projects:manage",
@@ -175,6 +211,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, Set<Permission>> = {
     "teams:view",
     "members:view",
     "tasks:view_own",
+    "tasks:comment",
     "recommendations:view_own",
     "projects:manage",
     "content:manage",

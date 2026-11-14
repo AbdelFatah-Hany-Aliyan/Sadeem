@@ -404,3 +404,123 @@ export async function deleteFileFromStorage(storageKey: string): Promise<boolean
     return false;
   }
 }
+
+const ALLOWED_DELIVERABLE_MIME_TYPES = new Set([
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "application/json",
+  "application/zip",
+  "application/x-zip-compressed",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+const MAX_DELIVERABLE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
+
+/**
+ * Validates a task deliverable file against size, MIME types, and forbidden extensions.
+ */
+export function validateDeliverableFile(file: {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+}): { valid: boolean; error?: string } {
+  if (!file.buffer || file.buffer.length === 0) {
+    return { valid: false, error: "Upload rejected: Deliverable buffer is empty." };
+  }
+
+  if (file.buffer.length > MAX_DELIVERABLE_SIZE_BYTES) {
+    const sizeMb = (file.buffer.length / (1024 * 1024)).toFixed(2);
+    return {
+      valid: false,
+      error: `Upload rejected: Deliverable size (${sizeMb} MB) exceeds maximum allowed limit of 15.00 MB.`,
+    };
+  }
+
+  const cleanName = sanitizeStorageFilename(file.filename).toLowerCase();
+  const forbiddenExtensions = [
+    ".exe", ".bat", ".cmd", ".sh", ".bash", ".ps1", ".vbs",
+    ".js", ".mjs", ".ts", ".html", ".htm", ".php", ".py", ".rb", ".dll", ".so"
+  ];
+
+  for (const ext of forbiddenExtensions) {
+    if (cleanName.endsWith(ext)) {
+      return {
+        valid: false,
+        error: `Upload rejected: Files with executable extension '${ext}' are strictly prohibited.`,
+      };
+    }
+  }
+
+  const normalizedMime = file.mimeType.toLowerCase().trim();
+  if (!ALLOWED_DELIVERABLE_MIME_TYPES.has(normalizedMime)) {
+    return {
+      valid: false,
+      error: `Upload rejected: Deliverable MIME type '${normalizedMime}' is not permitted. Supported formats include PDF, DOCX, XLSX, PPTX, Markdown, Text, JSON, ZIP, and standard images.`,
+    };
+  }
+
+  // Magic byte verification for PDF
+  if (normalizedMime === "application/pdf") {
+    const header = file.buffer.subarray(0, 5).toString("ascii");
+    if (!header.startsWith("%PDF-")) {
+      return { valid: false, error: "Upload rejected: File content does not match standard PDF header." };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Uploads a validated task deliverable file into private storage.
+ */
+export async function uploadDeliverableToStorage(file: {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+  keyPrefix?: string;
+}): Promise<StorageUploadResult> {
+  const validation = validateDeliverableFile(file);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  const status = getStorageStatus();
+  if (!status.configured) {
+    throw new Error(
+      `STORAGE_BLOCKED: Media storage provider is not configured. Missing environment variables: ${status.missingVariables.join(", ")}.`
+    );
+  }
+
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const cleanName = sanitizeStorageFilename(file.filename);
+  const prefix = file.keyPrefix || "deliverables";
+  const storageKey = `${prefix}/${year}/${month}/${randomUUID()}-${cleanName}`;
+
+  const s3 = getS3Client();
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: status.bucket,
+      Key: storageKey,
+      Body: file.buffer,
+      ContentType: file.mimeType,
+    })
+  );
+
+  return {
+    storageKey,
+    publicUrl: "", // Private deliverables use signed download URLs
+    mimeType: file.mimeType,
+    sizeBytes: file.buffer.length,
+  };
+}

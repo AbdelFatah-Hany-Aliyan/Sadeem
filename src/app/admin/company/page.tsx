@@ -179,7 +179,7 @@ export default async function CompanyOverviewPage() {
           {teams.map((team) => (
             <Link
               key={team.id}
-              href={`/admin/company/teams/${team.id}`}
+              href={`/admin/company/departments/${team.code}`}
               className="p-5 rounded-2xl bg-surface border border-border hover:border-accent/40 transition-all hover:shadow-lg group flex flex-col justify-between space-y-4"
             >
               <div>

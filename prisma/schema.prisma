@@ -442,6 +442,8 @@ model AdminUser {
   authorRecommendations AdministrativeRecommendation[] @relation("AuthorRecommendations")
   sentInvitations       MemberInvitation[]             @relation("SentInvitations")
   notifications         CompanyNotification[]          @relation("AdminNotifications")
+  taskComments          TaskComment[]
+  deliverables          TaskDeliverable[]
 
   @@index([email])
 }
@@ -565,6 +567,25 @@ enum CompanyNotificationType {
   TASK_REVIEW_REQUESTED
   RECOMMENDATION_ISSUED
   SYSTEM_ALERT
+  TASK_COMMENT_MENTION
+  TASK_REVIEW_APPROVED
+  TASK_CHANGES_REQUESTED
+  TEAM_ANNOUNCEMENT
+}
+
+enum DeliverableType {
+  FIGMA_LINK
+  GITHUB_LINK
+  DOCUMENT_LINK
+  FILE_UPLOAD
+  OTHER
+}
+
+enum DeliverableStatus {
+  SUBMITTED
+  CHANGES_REQUESTED
+  APPROVED
+  SUPERSEDED
 }
 
 // -----------------------------------------------------------------------------
@@ -624,6 +645,9 @@ model CompanyMember {
   reviewedTasks           CompanyTask[]                  @relation("ReviewedTasks")
   receivedRecommendations AdministrativeRecommendation[] @relation("TargetRecommendations")
   notifications           CompanyNotification[]          @relation("MemberNotifications")
+  taskCollaborations      TaskCollaborator[]
+  taskComments            TaskComment[]
+  deliverables            TaskDeliverable[]
 
   @@index([email])
   @@index([status])
@@ -749,6 +773,10 @@ model CompanyTask {
   team             CompanyTeam?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
   project          Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
   history          TaskHistory[]
+  collaborators    TaskCollaborator[]
+  checklistItems   TaskChecklistItem[]
+  comments         TaskComment[]
+  deliverables     TaskDeliverable[]
 
   @@index([status])
   @@index([assignedMemberId])
@@ -836,4 +864,91 @@ model EmailOutbox {
 
   @@index([status])
   @@index([recipientEmail])
+}
+
+// -----------------------------------------------------------------------------
+// Operations Sprint Models: Collaborators, Checklists, Comments, Deliverables
+// -----------------------------------------------------------------------------
+
+model TaskCollaborator {
+  id         String        @id @default(cuid())
+  taskId     String
+  memberId   String
+  assignedAt DateTime      @default(now())
+
+  task       CompanyTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  member     CompanyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, memberId])
+  @@index([memberId])
+  @@index([taskId])
+}
+
+model TaskChecklistItem {
+  id            String       @id @default(cuid())
+  taskId        String
+  title         String
+  isCompleted   Boolean      @default(false)
+  order         Int          @default(0)
+  completedAt   DateTime?
+  completedById String?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  task          CompanyTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, order])
+}
+
+model TaskComment {
+  id             String         @id @default(cuid())
+  taskId         String
+  authorAdminId  String?
+  authorMemberId String?
+  content        String         @db.Text
+  isEdited       Boolean        @default(false)
+  editedAt       DateTime?
+  isDeleted      Boolean        @default(false)
+  deletedAt      DateTime?
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  task           CompanyTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorAdmin    AdminUser?     @relation(fields: [authorAdminId], references: [id], onDelete: SetNull)
+  authorMember   CompanyMember? @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+  @@index([authorMemberId])
+  @@index([authorAdminId])
+}
+
+model TaskDeliverable {
+  id             String            @id @default(cuid())
+  taskId         String
+  authorMemberId String?
+  authorAdminId  String?
+  title          String
+  type           DeliverableType   @default(OTHER)
+  url            String?
+  storageKey     String?
+  fileName       String?
+  fileSize       Int?
+  mimeType       String?
+  status         DeliverableStatus @default(SUBMITTED)
+  reviewNotes    String?           @db.Text
+  reviewedById   String?
+  reviewedAt     DateTime?
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  task           CompanyTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorMember   CompanyMember?    @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
+  authorAdmin    AdminUser?        @relation(fields: [authorAdminId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([authorMemberId])
+  @@index([status])
 }
