@@ -36,6 +36,7 @@ import {
   deleteChecklistItemAction,
   addDeliverableLinkAction,
   uploadDeliverableFileAction,
+  getDeliverableDownloadUrlAction,
   submitTaskForReviewAction,
   approveTaskReviewAction,
   requestTaskChangesAction,
@@ -811,6 +812,26 @@ export default function TaskCollaborationModal({
                               <ExternalLink size={12} />
                               <span>فتح الرابط</span>
                             </a>
+                          )}
+                          {d.storageKey && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const fd = new FormData();
+                                fd.append("deliverableId", d.id);
+                                fd.append("taskId", task.id);
+                                const res = await getDeliverableDownloadUrlAction(fd);
+                                if (res.success && res.data?.url) {
+                                  window.open(res.data.url, "_blank");
+                                } else {
+                                  setActionError(res.error || "فشل إنشاء رابط التحميل");
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-xl border border-border bg-background hover:border-accent text-foreground text-xs font-mono flex items-center gap-1.5 transition-colors"
+                            >
+                              <Download size={12} />
+                              <span>تحميل الملف</span>
+                            </button>
                           )}
                         </div>
                       </div>

@@ -1,5 +1,6 @@
 "use server";
 
+import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth/session";
 import { requirePermission } from "@/lib/auth/permissions";
 import {
@@ -36,7 +37,7 @@ import {
   canModerateComment,
   getLinkedMemberId,
 } from "@/lib/auth/scopeGuard";
-import { uploadDeliverableToStorage } from "@/lib/storage/storageProvider";
+import { uploadDeliverableToStorage, getSignedDownloadUrl } from "@/lib/storage/storageProvider";
 import {
   createRecommendation,
   acknowledgeRecommendation,
@@ -801,6 +802,41 @@ export async function uploadDeliverableFileAction(formData: FormData): Promise<C
     return { success: true, data: deliverable };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to upload deliverable" };
+  }
+}
+
+/**
+ * Generates a temporary signed download URL for a private deliverable file.
+ */
+export async function getDeliverableDownloadUrlAction(formData: FormData): Promise<CompanyActionResult> {
+  const session = await getSession();
+  if (!session) return { success: false, error: "Unauthorized" };
+
+  try {
+    const deliverableId = formData.get("deliverableId") as string;
+    const taskId = formData.get("taskId") as string;
+
+    if (!deliverableId || !taskId) {
+      return { success: false, error: "Missing deliverableId or taskId" };
+    }
+
+    const access = await canAccessTask(session, taskId);
+    if (!access.allowed) {
+      return { success: false, error: access.reason || "Forbidden" };
+    }
+
+    const deliverable = await prisma.taskDeliverable.findUnique({
+      where: { id: deliverableId },
+    });
+
+    if (!deliverable || !deliverable.storageKey) {
+      return { success: false, error: "Deliverable file not found" };
+    }
+
+    const signedUrl = await getSignedDownloadUrl(deliverable.storageKey, 3600);
+    return { success: true, data: { url: signedUrl } };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to generate download URL" };
   }
 }
 
