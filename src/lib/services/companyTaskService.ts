@@ -192,7 +192,7 @@ export async function createTask(input: CreateTaskInput, actorAdminId?: string) 
     });
 
     return newTask;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 
   // Notify assigned owner
   if (task.assignedMemberId) {
@@ -361,7 +361,7 @@ export async function updateTask(
     });
 
     return task;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 
   // Handle assignment notifications
   if (
@@ -950,7 +950,7 @@ export async function submitTaskForReview(
     }
 
     return t;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 
   // Notify designated reviewer
   if (task.reviewerMemberId) {
@@ -1023,7 +1023,7 @@ export async function approveTaskReview(
     }
 
     return t;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 
   // Notify owner
   if (task.assignedMemberId) {
@@ -1098,7 +1098,7 @@ export async function requestTaskChanges(
     });
 
     return t;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 
   // Notify owner
   if (task.assignedMemberId) {
