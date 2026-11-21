@@ -597,7 +597,9 @@ export async function addTaskComment(input: {
           },
         },
       },
-      collaborators: true,
+      collaborators: {
+        include: { member: true },
+      },
     },
   });
 
@@ -652,13 +654,22 @@ export async function addTaskComment(input: {
 
     for (const token of rawTokens) {
       if (token === "all") continue;
-      const found = task.team?.memberships.find(
+      const foundInTeam = task.team?.memberships.find(
         (m) =>
           m.member.email.toLowerCase().includes(token) ||
           m.member.fullNameEn.toLowerCase().replace(/\s+/g, "").includes(token)
       );
-      if (found && found.memberId !== input.authorMemberId) {
-        notifiedRecipientMemberIds.add(found.memberId);
+      if (foundInTeam && foundInTeam.memberId !== input.authorMemberId) {
+        notifiedRecipientMemberIds.add(foundInTeam.memberId);
+      }
+
+      const foundInCollabs = task.collaborators?.find(
+        (c) =>
+          c.member.email.toLowerCase().includes(token) ||
+          c.member.fullNameEn.toLowerCase().replace(/\s+/g, "").includes(token)
+      );
+      if (foundInCollabs && foundInCollabs.memberId !== input.authorMemberId) {
+        notifiedRecipientMemberIds.add(foundInCollabs.memberId);
       }
     }
 
