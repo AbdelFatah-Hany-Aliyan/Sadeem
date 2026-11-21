@@ -7,6 +7,11 @@ import {
   rejectMemberAction,
   resendInvitationAction,
 } from "@/app/admin/company/actions";
+import {
+  resolveInvitationLifecycle,
+  isEmailConfigured,
+  InvitationLifecycleInfo,
+} from "@/lib/services/invitationService";
 import { InvitationStatus, EmailDeliveryStatus, AdminRole } from "@prisma/client";
 import {
   Send,
@@ -18,6 +23,7 @@ import {
   Clock,
   ShieldCheck,
   User,
+  Info,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +32,7 @@ export default async function InvitationsPage() {
   const session = await getSession();
   const canApprove = session ? hasPermission(session.role, "invitations:approve") : false;
   const canInvite = session ? hasPermission(session.role, "invitations:create") : false;
+  const emailConfigured = isEmailConfigured();
 
   const invitations = await prisma.memberInvitation.findMany({
     include: {
@@ -43,64 +50,6 @@ export default async function InvitationsPage() {
     },
     orderBy: { createdAt: "desc" },
   });
-
-  const getStatusBadge = (st: InvitationStatus) => {
-    switch (st) {
-      case InvitationStatus.ACCEPTED:
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-            ACCEPTED — NEEDS APPROVAL
-          </span>
-        );
-      case InvitationStatus.PENDING:
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
-            PENDING CANDIDATE
-          </span>
-        );
-      case InvitationStatus.DECLINED:
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-stone-500/15 text-muted border border-border">
-            DECLINED
-          </span>
-        );
-      case InvitationStatus.EXPIRED:
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/15 text-red-400 border border-red-500/30">
-            EXPIRED
-          </span>
-        );
-      default:
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-surface text-muted border border-border">
-            {st}
-          </span>
-        );
-    }
-  };
-
-  const getDeliveryBadge = (ds: EmailDeliveryStatus) => {
-    switch (ds) {
-      case EmailDeliveryStatus.DELIVERED:
-        return (
-          <span className="text-[10px] font-mono text-emerald-400">DELIVERED</span>
-        );
-      case EmailDeliveryStatus.BLOCKED_CONFIGURATION:
-        return (
-          <span className="text-[10px] font-mono text-amber-400" title="Resend API key not configured">
-            DEV / UNCONFIGURED
-          </span>
-        );
-      case EmailDeliveryStatus.FAILED:
-        return (
-          <span className="text-[10px] font-mono text-red-400">FAILED</span>
-        );
-      default:
-        return (
-          <span className="text-[10px] font-mono text-muted">PENDING</span>
-        );
-    }
-  };
 
   async function handleApprove(formData: FormData) {
     "use server";
@@ -130,6 +79,21 @@ export default async function InvitationsPage() {
         </div>
       </div>
 
+      {/* Email Configuration Warning Banner if unconfigured */}
+      {!emailConfigured && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-xs">
+          <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={18} />
+          <div className="space-y-1">
+            <span className="font-bold text-amber-300 block">
+              مزود البريد الإلكتروني غير مهيأ (Safe Offline Mode: Unconfigured)
+            </span>
+            <p className="text-muted leading-relaxed">
+              لم يتم ضبط متغير <code className="text-foreground font-mono bg-background px-1 py-0.5 rounded">RESEND_API_KEY</code> في بيئة العمل. يتم توليد وتشفير رموز الأمان في قاعدة البيانات محلياً دون إرسال بريد حقيقي للمرشحين. تظهر جميع الدعوات الجديدة بحالة <span className="text-amber-400 font-mono font-bold">BLOCKED CONFIGURATION</span>.
+            </p>
+          </div>
+        </div>
+      )}
+
       {invitations.length === 0 ? (
         <div className="p-12 text-center rounded-3xl bg-surface border border-border space-y-3">
           <Send size={32} className="text-muted mx-auto" />
@@ -146,9 +110,8 @@ export default async function InvitationsPage() {
                 <tr>
                   <th className="py-4 px-6">المرشح / Candidate</th>
                   <th className="py-4 px-6">القسم / Team</th>
-                  <th className="py-4 px-6">حالة الدعوة / Status</th>
-                  <th className="py-4 px-6">تسليم البريد / Email</th>
-                  <th className="py-4 px-6">تاريخ الإرسال</th>
+                  <th className="py-4 px-6">حالة الدعوة والإرسال / Lifecycle Status</th>
+                  <th className="py-4 px-6">تاريخ الإنشاء</th>
                   <th className="py-4 px-6 text-right">الإجراءات / Actions</th>
                 </tr>
               </thead>
@@ -156,6 +119,7 @@ export default async function InvitationsPage() {
                 {invitations.map((inv) => {
                   const member = inv.member;
                   const primaryTeam = member.memberships[0]?.team;
+                  const lifecycle: InvitationLifecycleInfo = resolveInvitationLifecycle(inv);
 
                   return (
                     <tr key={inv.id} className="hover:bg-background/40 transition-colors">
@@ -169,6 +133,11 @@ export default async function InvitationsPage() {
                         <span className="font-mono text-muted text-[11px] block">
                           {inv.email}
                         </span>
+                        {inv.invitedBy?.name && (
+                          <span className="text-[10px] text-muted">
+                            دعوة بواسطة: {inv.invitedBy.name}
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-4 px-6">
@@ -181,9 +150,22 @@ export default async function InvitationsPage() {
                         )}
                       </td>
 
-                      <td className="py-4 px-6">{getStatusBadge(inv.status)}</td>
-
-                      <td className="py-4 px-6">{getDeliveryBadge(inv.deliveryStatus)}</td>
+                      <td className="py-4 px-6 space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${lifecycle.dotClass}`} />
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${lifecycle.badgeClass}`}>
+                            {lifecycle.labelEn}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted leading-tight">
+                          {lifecycle.labelAr}
+                        </p>
+                        {inv.failureReason && (
+                          <p className="text-[10px] text-amber-400 font-mono bg-background/50 p-1 rounded border border-border/50 truncate max-w-xs" title={inv.failureReason}>
+                            {inv.failureReason}
+                          </p>
+                        )}
+                      </td>
 
                       <td className="py-4 px-6 font-mono text-muted text-[11px]">
                         {new Date(inv.createdAt).toLocaleDateString("en-GB")}
@@ -216,21 +198,20 @@ export default async function InvitationsPage() {
                             </form>
                           )}
 
-                          {(inv.status === InvitationStatus.PENDING ||
-                            inv.status === InvitationStatus.EXPIRED) &&
-                            canInvite && (
-                              <form action={handleResend} className="inline-flex">
-                                <input type="hidden" name="memberId" value={member.id} />
-                                <input type="hidden" name="email" value={inv.email} />
-                                <button
-                                  type="submit"
-                                  title="إعادة إرسال الدعوة"
-                                  className="p-1.5 rounded-lg border border-border hover:border-accent text-muted hover:text-foreground transition-colors"
-                                >
-                                  <RotateCw size={12} />
-                                </button>
-                              </form>
-                            )}
+                          {lifecycle.canRetry && canInvite && (
+                            <form action={handleResend} className="inline-flex">
+                              <input type="hidden" name="memberId" value={member.id} />
+                              <input type="hidden" name="email" value={inv.email} />
+                              <button
+                                type="submit"
+                                title="إعادة إرسال الدعوة (تدوير رمز الأمان)"
+                                className="px-2.5 py-1.5 rounded-lg border border-border hover:border-accent text-muted hover:text-foreground text-[11px] font-mono flex items-center gap-1 transition-colors"
+                              >
+                                <RotateCw size={11} />
+                                <span>إعادة المحاولة</span>
+                              </button>
+                            </form>
+                          )}
 
                           <Link
                             href={`/admin/company/members/${member.id}`}

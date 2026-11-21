@@ -10,6 +10,7 @@ import {
   reactivateMemberAction,
   resendInvitationAction,
 } from "@/app/admin/company/actions";
+import { resolveInvitationLifecycle } from "@/lib/services/invitationService";
 import { MemberStatus, AdminRole } from "@prisma/client";
 import {
   Users,
@@ -294,6 +295,47 @@ export default async function MemberProfilePage({ params }: PageProps) {
             </span>
           </div>
         </div>
+
+        {/* Latest Invitation Lifecycle Status Banner */}
+        {member.invitations[0] && (() => {
+          const latestInv = member.invitations[0];
+          const lifecycle = resolveInvitationLifecycle(latestInv);
+          return (
+            <div className="p-4 rounded-2xl bg-background border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted font-medium">حالة دعوة الانضمام:</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${lifecycle.badgeClass}`}>
+                    {lifecycle.labelEn}
+                  </span>
+                  <span className="text-muted font-normal">({lifecycle.labelAr})</span>
+                </div>
+                {latestInv.failureReason && (
+                  <p className="text-[11px] text-amber-400 font-mono">
+                    سبب التوقف: {latestInv.failureReason}
+                  </p>
+                )}
+                <p className="text-[11px] text-muted">
+                  تاريخ الإنشاء: {new Date(latestInv.createdAt).toLocaleDateString("en-GB")} • انتهاء الصلاحية: {new Date(latestInv.expiresAt).toLocaleDateString("en-GB")}
+                </p>
+              </div>
+
+              {lifecycle.canRetry && canInvite && (
+                <form action={handleResend} className="shrink-0">
+                  <input type="hidden" name="memberId" value={member.id} />
+                  <input type="hidden" name="email" value={member.email} />
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 rounded-xl border border-border hover:border-accent bg-surface text-foreground font-mono text-xs flex items-center gap-1.5 transition-colors"
+                  >
+                    <RotateCw size={13} />
+                    <span>إعادة إرسال الدعوة (تدوير الرمز)</span>
+                  </button>
+                </form>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Two Column Layout: Tasks & Guidance */}

@@ -15,12 +15,17 @@ export default function AddMemberModal({ teams }: { teams: TeamOption[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [notice, setNotice] = useState<{
+    type: "success" | "warning";
+    title: string;
+    message: string;
+  } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setNotice(null);
 
     const formData = new FormData(e.currentTarget);
     const res = await createMemberAction(formData);
@@ -29,11 +34,37 @@ export default function AddMemberModal({ teams }: { teams: TeamOption[] }) {
     if (!res.success) {
       setError(res.error || "Failed to create member");
     } else {
-      setSuccess(true);
+      const data = res.data;
+      if (data?.sendInvite && data?.deliveryStatus === "BLOCKED_CONFIGURATION") {
+        setNotice({
+          type: "warning",
+          title: "تم إنشاء العضو — إرسال البريد محظور",
+          message:
+            "تم حفظ بيانات العضو وإنشاء رمز الدعوة بنجاح. تنبيه: تم حظر إرسال البريد الحقيقي لأن مزود البريد (Resend) غير مهيأ في بيئة العمل.",
+        });
+      } else if (data?.sendInvite && data?.deliveryStatus === "FAILED") {
+        setNotice({
+          type: "warning",
+          title: "تم إنشاء العضو — تعذر إرسال البريد",
+          message: `تم حفظ بيانات العضو، ولكن فشل إرسال بريد الدعوة: ${data?.error || "خطأ غير متوقع من المزود"}. يمكنك إعادة المحاولة لاحقاً.`,
+        });
+      } else if (data?.sendInvite) {
+        setNotice({
+          type: "success",
+          title: "تم إنشاء العضو وإرسال الدعوة",
+          message: "تم إنشاء العضو بنجاح وجاري إرسال الدعوة عبر مزود البريد المعتمد.",
+        });
+      } else {
+        setNotice({
+          type: "success",
+          title: "تم إنشاء العضو بنجاح",
+          message: "تم حفظ بيانات العضو وتعيينه في الفريق دون إرسال دعوة.",
+        });
+      }
       setTimeout(() => {
         setIsOpen(false);
-        setSuccess(false);
-      }, 1200);
+        setNotice(null);
+      }, 3000);
     }
   };
 
@@ -74,10 +105,25 @@ export default function AddMemberModal({ teams }: { teams: TeamOption[] }) {
               </div>
             )}
 
-            {success && (
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
-                <CheckCircle2 size={15} className="shrink-0" />
-                <span>تم إنشاء العضو وإرسال الدعوة بنجاح!</span>
+            {notice && (
+              <div
+                className={`p-3.5 rounded-xl text-xs space-y-1 border ${
+                  notice.type === "warning"
+                    ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
+                    : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                }`}
+              >
+                <div className="flex items-center gap-2 font-bold">
+                  {notice.type === "warning" ? (
+                    <AlertCircle size={15} className="shrink-0 text-amber-400" />
+                  ) : (
+                    <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
+                  )}
+                  <span>{notice.title}</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted font-normal pr-6">
+                  {notice.message}
+                </p>
               </div>
             )}
 

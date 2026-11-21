@@ -8,7 +8,137 @@
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { InvitationStatus, EmailDeliveryStatus, MemberStatus, CompanyNotificationType } from "@prisma/client";
-import { sendMemberInvitationEmail } from "@/lib/email/emailService";
+import { sendMemberInvitationEmail, isEmailConfigured } from "@/lib/email/emailService";
+
+export { isEmailConfigured };
+
+export type InvitationLifecycleStatus =
+  | "INVITATION_CREATED"
+  | "EMAIL_QUEUED"
+  | "BLOCKED_CONFIGURATION"
+  | "SEND_FAILED"
+  | "ACCEPTED_BY_PROVIDER"
+  | "DELIVERED"
+  | "INVITATION_ACCEPTED";
+
+export interface InvitationLifecycleInfo {
+  status: InvitationLifecycleStatus;
+  labelAr: string;
+  labelEn: string;
+  badgeClass: string;
+  dotClass: string;
+  descriptionAr: string;
+  descriptionEn: string;
+  canRetry: boolean;
+}
+
+/**
+ * Resolves the operational lifecycle state of an invitation for UI display and audit.
+ * Distinguishes created, queued, blocked, failed, provider-accepted, verified-delivered, and candidate-accepted states.
+ */
+export function resolveInvitationLifecycle(invitation: {
+  status: InvitationStatus;
+  deliveryStatus: EmailDeliveryStatus;
+  sentAt?: Date | null;
+  failureReason?: string | null;
+  isVerifiedDelivered?: boolean;
+}): InvitationLifecycleInfo {
+  // 1. Candidate accepted
+  if (invitation.status === InvitationStatus.ACCEPTED) {
+    return {
+      status: "INVITATION_ACCEPTED",
+      labelAr: "تم قبول الدعوة (بانتظار الاعتماد)",
+      labelEn: "INVITATION ACCEPTED",
+      badgeClass: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
+      dotClass: "bg-emerald-400",
+      descriptionAr: "أكد المرشح رغبته بالانضمام، وهي الآن بانتظار مراجعة الإدارة والاعتماد.",
+      descriptionEn: "Candidate accepted the invitation; awaiting manager review and approval.",
+      canRetry: false,
+    };
+  }
+
+  // 2. Blocked configuration (Resend key missing or domain unconfigured)
+  if (invitation.deliveryStatus === EmailDeliveryStatus.BLOCKED_CONFIGURATION) {
+    return {
+      status: "BLOCKED_CONFIGURATION",
+      labelAr: "محظور — مزود البريد غير مهيأ",
+      labelEn: "BLOCKED CONFIGURATION",
+      badgeClass: "bg-amber-500/15 text-amber-400 border border-amber-500/30",
+      dotClass: "bg-amber-400",
+      descriptionAr: invitation.failureReason || "لم يتم ضبط مفتاح RESEND_API_KEY أو النطاق في بيئة العمل.",
+      descriptionEn: "Transactional email provider is unconfigured. Real email safely blocked.",
+      canRetry: true,
+    };
+  }
+
+  // 3. Failed delivery
+  if (invitation.deliveryStatus === EmailDeliveryStatus.FAILED) {
+    return {
+      status: "SEND_FAILED",
+      labelAr: "فشل الإرسال",
+      labelEn: "SEND FAILED",
+      badgeClass: "bg-red-500/15 text-red-400 border border-red-500/30",
+      dotClass: "bg-red-400",
+      descriptionAr: invitation.failureReason || "تعذر إرسال البريد عبر المزود الخارجي.",
+      descriptionEn: invitation.failureReason || "Provider failed to send invitation email.",
+      canRetry: true,
+    };
+  }
+
+  // 4. Delivered (verified delivery confirmed by provider webhook)
+  if (invitation.deliveryStatus === EmailDeliveryStatus.DELIVERED && invitation.isVerifiedDelivered) {
+    return {
+      status: "DELIVERED",
+      labelAr: "تم التسليم بنجاح (مؤكد)",
+      labelEn: "DELIVERED",
+      badgeClass: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+      dotClass: "bg-emerald-300",
+      descriptionAr: "تم تسليم الرسالة لصندوق بريد المستلم بنجاح.",
+      descriptionEn: "Mailbox delivery confirmed.",
+      canRetry: false,
+    };
+  }
+
+  // 5. Accepted by provider (HTTP 200 from Resend API with providerId, queued for dispatch)
+  if (invitation.deliveryStatus === EmailDeliveryStatus.DELIVERED && invitation.sentAt) {
+    return {
+      status: "ACCEPTED_BY_PROVIDER",
+      labelAr: "مقبول لدى المزود (قيد الإرسال)",
+      labelEn: "ACCEPTED BY PROVIDER",
+      badgeClass: "bg-blue-500/15 text-blue-400 border border-blue-500/30",
+      dotClass: "bg-blue-400",
+      descriptionAr: "استلم مزود البريد الرسالة وجاري معالجتها للتسليم.",
+      descriptionEn: "Dispatched to provider queue. Awaiting final mailbox receipt.",
+      canRetry: false,
+    };
+  }
+
+  // 6. Queued in outbox
+  if (invitation.deliveryStatus === EmailDeliveryStatus.PENDING && invitation.sentAt === null && invitation.failureReason === "QUEUED") {
+    return {
+      status: "EMAIL_QUEUED",
+      labelAr: "في قائمة انتظار الإرسال",
+      labelEn: "EMAIL QUEUED",
+      badgeClass: "bg-sky-500/15 text-sky-400 border border-sky-500/30",
+      dotClass: "bg-sky-400",
+      descriptionAr: "الرسالة مجدولة في صندوق الإرسال وتنتظر المعالجة.",
+      descriptionEn: "Invitation email queued in durable outbox.",
+      canRetry: true,
+    };
+  }
+
+  // 7. Created but email not queued / pending
+  return {
+    status: "INVITATION_CREATED",
+    labelAr: "تم إنشاء الدعوة",
+    labelEn: "INVITATION CREATED",
+    badgeClass: "bg-stone-500/15 text-stone-300 border border-border",
+    dotClass: "bg-stone-400",
+    descriptionAr: "تم إنشاء سجل الدعوة وتوليد الرمز المشفر بنجاح.",
+    descriptionEn: "Invitation record created with encrypted token.",
+    canRetry: true,
+  };
+}
 
 export function hashToken(rawToken: string): string {
   return crypto.createHash("sha256").update(rawToken).digest("hex");

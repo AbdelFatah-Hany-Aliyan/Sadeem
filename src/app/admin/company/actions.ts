@@ -93,7 +93,7 @@ export async function createMemberAction(formData: FormData): Promise<CompanyAct
       return { success: false, error: "Primary team assignment is required" };
     }
 
-    const { member } = await createCompanyMember(
+    const { member, inviteResult } = await createCompanyMember(
       {
         fullNameEn,
         fullNameAr,
@@ -113,7 +113,15 @@ export async function createMemberAction(formData: FormData): Promise<CompanyAct
     revalidatePath("/admin/company/members");
     revalidatePath("/admin/company/invitations");
 
-    return { success: true, data: { id: member.id } };
+    return {
+      success: true,
+      data: {
+        id: member.id,
+        sendInvite,
+        deliveryStatus: inviteResult?.deliveryResult?.deliveryStatus || null,
+        error: inviteResult?.deliveryResult?.error || null,
+      },
+    };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to create member" };
   }
@@ -266,7 +274,7 @@ export async function resendInvitationAction(formData: FormData): Promise<Compan
       return { success: false, error: "Missing memberId or email" };
     }
 
-    await createAndSendInvitation({
+    const result = await createAndSendInvitation({
       memberId,
       email,
       invitedById: session.userId,
@@ -275,7 +283,33 @@ export async function resendInvitationAction(formData: FormData): Promise<Compan
     revalidatePath("/admin/company/invitations");
     revalidatePath(`/admin/company/members/${memberId}`);
 
-    return { success: true };
+    if (result.deliveryResult.deliveryStatus === "BLOCKED_CONFIGURATION") {
+      return {
+        success: true,
+        data: {
+          status: "BLOCKED_CONFIGURATION",
+          deliveryStatus: result.deliveryResult.deliveryStatus,
+          message:
+            "تم تجديد رمز الدعوة وإلغاء الرمز السابق، ولكن تم حظر إرسال البريد لعدم تهيئة مزود البريد (RESEND_API_KEY).",
+        },
+      };
+    }
+
+    if (result.deliveryResult.deliveryStatus === "FAILED") {
+      return {
+        success: false,
+        error: `تم تدوير رمز الدعوة بنجاح، ولكن فشل الإرسال عبر المزود: ${result.deliveryResult.error}`,
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        status: "ACCEPTED_BY_PROVIDER",
+        deliveryStatus: result.deliveryResult.deliveryStatus,
+        message: "تم تجديد رمز الدعوة وإرسالها إلى مزود البريد بنجاح.",
+      },
+    };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to resend invitation" };
   }
