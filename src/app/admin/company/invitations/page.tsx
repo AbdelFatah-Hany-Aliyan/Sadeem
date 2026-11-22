@@ -88,7 +88,7 @@ export default async function InvitationsPage() {
               مزود البريد الإلكتروني غير مهيأ (Safe Offline Mode: Unconfigured)
             </span>
             <p className="text-muted leading-relaxed">
-              لم يتم ضبط متغير <code className="text-foreground font-mono bg-background px-1 py-0.5 rounded">RESEND_API_KEY</code> في بيئة العمل. يتم توليد وتشفير رموز الأمان في قاعدة البيانات محلياً دون إرسال بريد حقيقي للمرشحين. تظهر جميع الدعوات الجديدة بحالة <span className="text-amber-400 font-mono font-bold">BLOCKED CONFIGURATION</span>.
+              لم يتم ضبط بيانات مزود البريد الإلكتروني (سواء <code className="text-foreground font-mono bg-background px-1 py-0.5 rounded">Gmail SMTP</code> أو <code className="text-foreground font-mono bg-background px-1 py-0.5 rounded">Resend API</code>) في بيئة العمل. يتم توليد وتشفير رموز الأمان في قاعدة البيانات محلياً دون إرسال بريد حقيقي للمرشحين. تظهر جميع الدعوات الجديدة بحالة <span className="text-amber-400 font-mono font-bold">BLOCKED CONFIGURATION</span>.
             </p>
           </div>
         </div>
