@@ -32,7 +32,6 @@
 import fs from "fs";
 import path from "path";
 import {
-  PrismaClient,
   AdminRole,
   TeamRole,
   TaskStatus,
@@ -60,17 +59,22 @@ for (const line of envContent.split(/\r?\n/)) {
   process.env[key] = val;
 }
 
-const cleanDbUrl = (process.env.DATABASE_URL || "")
-  .replace("channel_binding=require&", "")
-  .replace("&channel_binding=require", "")
-  .replace("?channel_binding=require", "?")
-  .replace(/\?$/, "");
+if (process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL
+    .replace("channel_binding=require&", "")
+    .replace("&channel_binding=require", "")
+    .replace("?channel_binding=require", "?")
+    .replace(/\?$/, "");
+}
+if (process.env.DIRECT_URL) {
+  process.env.DIRECT_URL = process.env.DIRECT_URL
+    .replace("channel_binding=require&", "")
+    .replace("&channel_binding=require", "")
+    .replace("?channel_binding=require", "?")
+    .replace(/\?$/, "");
+}
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: { url: cleanDbUrl },
-  },
-});
+import prisma from "@/lib/prisma";
 
 import {
   createTask,

@@ -110,7 +110,7 @@ async function main() {
 
     assert(mockResult.success === true, "5a. Mock transport dispatches successfully");
     assert(mockResult.deliveryStatus === EmailDeliveryStatus.DELIVERED, "5b. Delivery status is DELIVERED");
-    assert(mockResult.providerId?.startsWith("mock_"), "5c. Provider ID generated with mock prefix");
+    assert(!!mockResult.providerId?.startsWith("mock_"), "5c. Provider ID generated with mock prefix");
 
     const outboxRecord = await prisma.emailOutbox.findUnique({
       where: { id: mockResult.outboxId },
