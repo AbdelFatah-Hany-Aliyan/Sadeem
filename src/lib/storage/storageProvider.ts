@@ -1,0 +1,526 @@
+/**
+ * SADEEM STUDIO — SECURE OBJECT STORAGE ABSTRACTION
+ *
+ * Provides an external object-storage provider abstraction (AWS S3, Cloudflare R2, MinIO).
+ * Enforces:
+ * 1. Safe storage keys (UUID-prefixed, path traversal prevention, date-partitioned).
+ * 2. MIME type validation against strict image whitelist.
+ * 3. File size ceiling (5MB max limit).
+ * 4. Graceful handling of unconfigured storage: keeps uploads strictly blocked
+ *    and reports missing configuration rather than failing silently or using insecure defaults.
+ * 5. Credentials never exposed or transmitted to the client.
+ */
+
+import { randomUUID } from "crypto";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+export interface StorageStatus {
+  configured: boolean;
+  provider: string;
+  bucket?: string;
+  endpoint?: string;
+  missingVariables: string[];
+}
+
+export interface StorageUploadResult {
+  storageKey: string;
+  publicUrl: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/svg+xml",
+  "image/gif",
+]);
+
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+/**
+ * Helper to build an S3Client instance configured for AWS, Cloudflare R2, or Neon.
+ */
+function getS3Client(): S3Client {
+  const accessKeyId = process.env.STORAGE_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.STORAGE_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+  const endpoint = process.env.STORAGE_ENDPOINT || process.env.AWS_ENDPOINT_URL_S3;
+  const region = process.env.STORAGE_REGION || process.env.AWS_REGION || "us-east-2";
+
+  return new S3Client({
+    region,
+    endpoint: endpoint || undefined,
+    forcePathStyle: true, // Required for Neon Object Storage and MinIO/S3 path-style addressing
+    credentials: {
+      accessKeyId: accessKeyId!,
+      secretAccessKey: secretAccessKey!,
+    },
+  });
+}
+
+/**
+ * Checks whether an external object storage provider is configured in environment.
+ * Supports standard STORAGE_* variables as well as Neon-injected AWS_* credentials.
+ */
+export function getStorageStatus(): StorageStatus {
+  const rawProvider = (process.env.STORAGE_PROVIDER || "").toLowerCase().trim();
+  const hasNeonEnv = !!process.env.AWS_ENDPOINT_URL_S3 || (!!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY);
+  const provider = rawProvider || (hasNeonEnv ? "neon" : "");
+
+  const bucket = process.env.STORAGE_BUCKET || (provider === "neon" ? "sadeem-media-staging" : undefined);
+  const endpoint = process.env.STORAGE_ENDPOINT || process.env.AWS_ENDPOINT_URL_S3;
+  const accessKeyId = process.env.STORAGE_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.STORAGE_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+
+  const missingVariables: string[] = [];
+
+  if (!provider || (provider !== "s3" && provider !== "r2" && provider !== "neon" && provider !== "local")) {
+    missingVariables.push("STORAGE_PROVIDER (s3 | r2 | neon)");
+  }
+  if (!bucket) {
+    missingVariables.push("STORAGE_BUCKET");
+  }
+  if (!accessKeyId) {
+    missingVariables.push("STORAGE_ACCESS_KEY_ID");
+  }
+  if (!secretAccessKey) {
+    missingVariables.push("STORAGE_SECRET_ACCESS_KEY");
+  }
+
+  const configured = missingVariables.length === 0;
+
+  return {
+    configured,
+    provider: provider || "unconfigured",
+    bucket: bucket || undefined,
+    endpoint: endpoint || undefined,
+    missingVariables,
+  };
+}
+
+/**
+ * Sanitizes an incoming filename against path traversal and malicious characters.
+ */
+export function sanitizeStorageFilename(filename: string): string {
+  // Strip paths, backslashes, null bytes
+  const basename = filename.replace(/^.*[\\/]/, "").replace(/\0/g, "");
+  // Replace non-alphanumeric (except dot, dash, underscore) with underscore
+  const safeName = basename.replace(/[^a-zA-Z0-9._-]/g, "_");
+  // Limit length
+  return safeName.slice(0, 100) || "unnamed_media";
+}
+
+/**
+ * Validates file buffer, MIME type, and size against security constraints.
+ */
+export function validateUploadFile(file: {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+}): { valid: boolean; error?: string } {
+  if (!file.buffer || file.buffer.length === 0) {
+    return { valid: false, error: "Upload rejected: File buffer is empty." };
+  }
+
+  if (file.buffer.length > MAX_FILE_SIZE_BYTES) {
+    const sizeMb = (file.buffer.length / (1024 * 1024)).toFixed(2);
+    return {
+      valid: false,
+      error: `Upload rejected: File size (${sizeMb} MB) exceeds maximum allowed limit of 5.00 MB.`,
+    };
+  }
+
+  const normalizedMime = file.mimeType.toLowerCase().trim();
+  if (!ALLOWED_MIME_TYPES.has(normalizedMime)) {
+    return {
+      valid: false,
+      error: `Upload rejected: MIME type '${normalizedMime}' is not allowed. Only JPEG, PNG, WebP, SVG, and GIF are supported.`,
+    };
+  }
+
+  // Magic byte verification for binary images
+  if (normalizedMime === "image/jpeg") {
+    if (file.buffer[0] !== 0xff || file.buffer[1] !== 0xd8) {
+      return { valid: false, error: "Upload rejected: File content does not match JPEG header." };
+    }
+  } else if (normalizedMime === "image/png") {
+    if (
+      file.buffer[0] !== 0x89 ||
+      file.buffer[1] !== 0x50 ||
+      file.buffer[2] !== 0x4e ||
+      file.buffer[3] !== 0x47
+    ) {
+      return { valid: false, error: "Upload rejected: File content does not match PNG header." };
+    }
+  } else if (normalizedMime === "image/gif") {
+    if (
+      file.buffer[0] !== 0x47 ||
+      file.buffer[1] !== 0x49 ||
+      file.buffer[2] !== 0x46
+    ) {
+      return { valid: false, error: "Upload rejected: File content does not match GIF header." };
+    }
+  } else if (normalizedMime === "image/webp") {
+    // WebP magic bytes: RIFF (bytes 0-3) and WEBP (bytes 8-11)
+    if (
+      file.buffer.length < 12 ||
+      file.buffer[0] !== 0x52 || // R
+      file.buffer[1] !== 0x49 || // I
+      file.buffer[2] !== 0x46 || // F
+      file.buffer[3] !== 0x46 || // F
+      file.buffer[8] !== 0x57 || // W
+      file.buffer[9] !== 0x45 || // E
+      file.buffer[10] !== 0x42 || // B
+      file.buffer[11] !== 0x50   // P
+    ) {
+      return { valid: false, error: "Upload rejected: File content does not match WebP container header." };
+    }
+  } else if (normalizedMime === "image/svg+xml") {
+    // Production Safety: Untrusted SVG uploads are disabled by default in production
+    // unless an isolated sandbox delivery domain is explicitly approved via ALLOW_UNTRUSTED_SVG=true.
+    const isSvgExplicitlyAllowed = process.env.ALLOW_UNTRUSTED_SVG === "true";
+    if (process.env.NODE_ENV === "production" && !isSvgExplicitlyAllowed) {
+      return {
+        valid: false,
+        error:
+          "Upload rejected: SVG vector uploads are disabled by default in production due to script execution risks. Upload raster images (WebP, PNG, JPEG) or configure ALLOW_UNTRUSTED_SVG=true with an isolated CDN domain.",
+      };
+    }
+
+    // Content Security Inspection (Defense-in-Depth): prevent Stored XSS via embedded scripts or entities
+    const svgContent = file.buffer.toString("utf-8").toLowerCase();
+
+    if (!svgContent.includes("<svg")) {
+      return { valid: false, error: "Upload rejected: File does not appear to be a valid SVG document." };
+    }
+
+    const dangerousPatterns = [
+      "<script",
+      "</script>",
+      "javascript:",
+      "onload=",
+      "onerror=",
+      "onclick=",
+      "onmouseover=",
+      "<foreignobject",
+      "<iframe",
+      "<!entity",
+      "<!doctype"
+    ];
+
+    for (const pattern of dangerousPatterns) {
+      if (svgContent.includes(pattern)) {
+        return {
+          valid: false,
+          error: `Upload rejected: SVG contains forbidden executable markup or entity declaration ('${pattern}').`,
+        };
+      }
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Uploads a validated file to the configured object storage provider.
+ * When unconfigured, safely blocks upload with explicit actionable instructions.
+ */
+export async function uploadFileToStorage(file: {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+  customKey?: string;
+  keyPrefix?: string;
+}): Promise<StorageUploadResult> {
+  const validation = validateUploadFile(file);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  const status = getStorageStatus();
+  if (!status.configured) {
+    throw new Error(
+      `STORAGE_BLOCKED: Media storage provider is not configured. Missing environment variables: ${status.missingVariables.join(", ")}. Please configure an S3 or Cloudflare R2 bucket in .env.`
+    );
+  }
+
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const cleanName = sanitizeStorageFilename(file.filename);
+
+  let storageKey: string;
+  if (file.customKey) {
+    storageKey = file.customKey;
+  } else if (file.keyPrefix) {
+    storageKey = `${file.keyPrefix.replace(/\/$/, "")}/${randomUUID()}-${cleanName}`;
+  } else {
+    storageKey = `projects/${year}/${month}/${randomUUID()}-${cleanName}`;
+  }
+
+  const s3 = getS3Client();
+
+  // Upload object to S3 / Neon Object Storage / Cloudflare R2
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: status.bucket,
+      Key: storageKey,
+      Body: file.buffer,
+      ContentType: file.mimeType,
+    })
+  );
+
+  // Compute retrieval URL:
+  // 1. If custom CDN / public URL is configured (recommended for production assets)
+  // 2. Otherwise generate a presigned GET URL (for private buckets) or direct endpoint URL
+  let publicUrl: string;
+  if (process.env.STORAGE_PUBLIC_URL) {
+    publicUrl = `${process.env.STORAGE_PUBLIC_URL.replace(/\/$/, "")}/${storageKey}`;
+  } else if (status.endpoint) {
+    try {
+      const getCmd = new GetObjectCommand({
+        Bucket: status.bucket,
+        Key: storageKey,
+      });
+      publicUrl = await getSignedUrl(s3, getCmd, { expiresIn: 86400 });
+    } catch {
+      publicUrl = `${status.endpoint.replace(/\/$/, "")}/${status.bucket}/${storageKey}`;
+    }
+  } else {
+    publicUrl = `https://${status.bucket}.s3.amazonaws.com/${storageKey}`;
+  }
+
+  return {
+    storageKey,
+    publicUrl,
+    mimeType: file.mimeType,
+    sizeBytes: file.buffer.length,
+  };
+}
+
+/**
+ * Generates a presigned GET URL for an object key.
+ */
+export async function getSignedDownloadUrl(
+  storageKey: string,
+  expiresInSeconds: number = 3600
+): Promise<string> {
+  const status = getStorageStatus();
+  if (!status.configured) {
+    throw new Error("STORAGE_BLOCKED: Media storage provider is not configured.");
+  }
+
+  const s3 = getS3Client();
+  const getCmd = new GetObjectCommand({
+    Bucket: status.bucket,
+    Key: storageKey,
+  });
+
+  return await getSignedUrl(s3, getCmd, { expiresIn: expiresInSeconds });
+}
+
+/**
+ * Downloads raw object bytes from external storage.
+ */
+export async function downloadFileFromStorage(storageKey: string): Promise<Buffer> {
+  const status = getStorageStatus();
+  if (!status.configured) {
+    throw new Error("STORAGE_BLOCKED: Media storage provider is not configured.");
+  }
+
+  const s3 = getS3Client();
+  const getCmd = new GetObjectCommand({
+    Bucket: status.bucket,
+    Key: storageKey,
+  });
+
+  const res = await s3.send(getCmd);
+  const byteArray = await res.Body?.transformToByteArray();
+  if (!byteArray) {
+    throw new Error(`Failed to read object body from storage for key: ${storageKey}`);
+  }
+
+  return Buffer.from(byteArray);
+}
+
+/**
+ * Checks whether an object exists in external storage.
+ */
+export async function checkFileExistsInStorage(storageKey: string): Promise<boolean> {
+  const status = getStorageStatus();
+  if (!status.configured) {
+    return false;
+  }
+
+  try {
+    const s3 = getS3Client();
+    await s3.send(
+      new HeadObjectCommand({
+        Bucket: status.bucket,
+        Key: storageKey,
+      })
+    );
+    return true;
+  } catch (error: any) {
+    if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Returns the raw, unsigned direct endpoint URL for an object key.
+ */
+export function getDirectObjectUrl(storageKey: string): string {
+  const status = getStorageStatus();
+  const endpoint = status.endpoint || (status.bucket ? `https://${status.bucket}.s3.amazonaws.com` : "");
+  return `${endpoint.replace(/\/$/, "")}/${status.bucket}/${storageKey}`;
+}
+
+/**
+ * Deletes an object from external storage.
+ */
+export async function deleteFileFromStorage(storageKey: string): Promise<boolean> {
+  const status = getStorageStatus();
+  if (!status.configured) {
+    console.warn(`Skipping remote deletion for '${storageKey}': Storage provider is unconfigured.`);
+    return false;
+  }
+
+  try {
+    const s3 = getS3Client();
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: status.bucket,
+        Key: storageKey,
+      })
+    );
+    return true;
+  } catch (error) {
+    console.error(`Failed to delete storage object '${storageKey}':`, error);
+    return false;
+  }
+}
+
+const ALLOWED_DELIVERABLE_MIME_TYPES = new Set([
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "application/json",
+  "application/zip",
+  "application/x-zip-compressed",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+const MAX_DELIVERABLE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
+
+/**
+ * Validates a task deliverable file against size, MIME types, and forbidden extensions.
+ */
+export function validateDeliverableFile(file: {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+}): { valid: boolean; error?: string } {
+  if (!file.buffer || file.buffer.length === 0) {
+    return { valid: false, error: "Upload rejected: Deliverable buffer is empty." };
+  }
+
+  if (file.buffer.length > MAX_DELIVERABLE_SIZE_BYTES) {
+    const sizeMb = (file.buffer.length / (1024 * 1024)).toFixed(2);
+    return {
+      valid: false,
+      error: `Upload rejected: Deliverable size (${sizeMb} MB) exceeds maximum allowed limit of 15.00 MB.`,
+    };
+  }
+
+  const cleanName = sanitizeStorageFilename(file.filename).toLowerCase();
+  const forbiddenExtensions = [
+    ".exe", ".bat", ".cmd", ".sh", ".bash", ".ps1", ".vbs",
+    ".js", ".mjs", ".ts", ".html", ".htm", ".php", ".py", ".rb", ".dll", ".so"
+  ];
+
+  for (const ext of forbiddenExtensions) {
+    if (cleanName.endsWith(ext)) {
+      return {
+        valid: false,
+        error: `Upload rejected: Files with executable extension '${ext}' are strictly prohibited.`,
+      };
+    }
+  }
+
+  const normalizedMime = file.mimeType.toLowerCase().trim();
+  if (!ALLOWED_DELIVERABLE_MIME_TYPES.has(normalizedMime)) {
+    return {
+      valid: false,
+      error: `Upload rejected: Deliverable MIME type '${normalizedMime}' is not permitted. Supported formats include PDF, DOCX, XLSX, PPTX, Markdown, Text, JSON, ZIP, and standard images.`,
+    };
+  }
+
+  // Magic byte verification for PDF
+  if (normalizedMime === "application/pdf") {
+    const header = file.buffer.subarray(0, 5).toString("ascii");
+    if (!header.startsWith("%PDF-")) {
+      return { valid: false, error: "Upload rejected: File content does not match standard PDF header." };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Uploads a validated task deliverable file into private storage.
+ */
+export async function uploadDeliverableToStorage(file: {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+  keyPrefix?: string;
+}): Promise<StorageUploadResult> {
+  const validation = validateDeliverableFile(file);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  const status = getStorageStatus();
+  if (!status.configured) {
+    throw new Error(
+      `STORAGE_BLOCKED: Media storage provider is not configured. Missing environment variables: ${status.missingVariables.join(", ")}.`
+    );
+  }
+
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const cleanName = sanitizeStorageFilename(file.filename);
+  const prefix = file.keyPrefix || "deliverables";
+  const storageKey = `${prefix}/${year}/${month}/${randomUUID()}-${cleanName}`;
+
+  const s3 = getS3Client();
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: status.bucket,
+      Key: storageKey,
+      Body: file.buffer,
+      ContentType: file.mimeType,
+    })
+  );
+
+  return {
+    storageKey,
+    publicUrl: "", // Private deliverables use signed download URLs
+    mimeType: file.mimeType,
+    sizeBytes: file.buffer.length,
+  };
+}

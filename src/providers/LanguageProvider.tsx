@@ -11,7 +11,12 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
+interface LanguageProviderProps {
+  children: ReactNode;
+  initialContent?: Record<Language, Content>;
+}
+
+export function LanguageProvider({ children, initialContent }: LanguageProviderProps) {
   const [language, setLanguageState] = useState<Language>("en");
   const [mounted, setMounted] = useState(false);
 
@@ -37,7 +42,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   }, [language, mounted]);
 
-  const t = content[language];
+  const activeDictionary = initialContent || content;
+  const t = activeDictionary[language];
 
   // Optional: Return null or a subtle loader to prevent FOUC for text until mounted?
   // Since we want SSR, returning children immediately is better, but it will render 'en' by default on server.

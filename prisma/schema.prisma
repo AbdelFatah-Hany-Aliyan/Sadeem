@@ -1,0 +1,954 @@
+// Sadeem Studio — Database Schema
+// Phase 4.2: PostgreSQL & Prisma ORM Foundation
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Core Domain Enums
+// -----------------------------------------------------------------------------
+
+enum DevelopmentStatus {
+  CONCEPT
+  MVP
+  BUILDING
+  LIVE
+  MAINTENANCE
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ProjectType {
+  MOBILE_APPLICATION
+  WEB_PLATFORM
+  COLLABORATIVE_COMMERCE
+  ENTERPRISE_SYSTEM
+  OTHER
+}
+
+enum OwnershipType {
+  SADEEM_VENTURE
+  SADEEM_SYSTEM
+  COLLABORATIVE_PARTNERSHIP
+  CLIENT_SYSTEM
+}
+
+enum PartnershipStatus {
+  NOT_APPLICABLE
+  UNDER_DISCUSSION
+  CONFIRMED
+  DISSOLVED
+}
+
+enum TechCategory {
+  FRONTEND
+  BACKEND
+  MOBILE
+  AI_ML
+  DATABASE
+  INFRASTRUCTURE
+  OTHER
+}
+
+enum MediaType {
+  COVER_IMAGE
+  SCREENSHOT
+  DIAGRAM
+  LOGO
+  VIDEO
+}
+
+enum InquiryType {
+  BUSINESS_PROJECT
+  VENTURE_PITCH
+  BUSINESS_SYSTEM
+  PARTNERSHIP
+  GENERAL
+}
+
+enum InquiryStatus {
+  NEW
+  REVIEWING
+  QUALIFIED
+  DISCOVERY
+  PROPOSAL
+  ACCEPTED
+  REJECTED
+  CLOSED
+  RESPONDED
+  ARCHIVED
+}
+
+enum ContactChannel {
+  EMAIL
+  PHONE
+  WHATSAPP
+}
+
+enum VentureStage {
+  IDEA
+  RESEARCH
+  PROTOTYPE
+  MVP
+  EXISTING_PRODUCT
+}
+
+enum ProjectCategory {
+  ENTERPRISE_SYSTEM
+  WEB_PLATFORM
+  MOBILE_APPLICATION
+  ECOSYSTEM_INTEGRATION
+  OTHER
+}
+
+enum ExpectedTimeline {
+  IMMEDIATE
+  ONE_TO_THREE_MONTHS
+  THREE_TO_SIX_MONTHS
+  FLEXIBLE
+}
+
+enum BudgetRange {
+  LESS_THAN_10K
+  TEN_TO_25K
+  TWENTY_FIVE_TO_50K
+  FIFTY_K_PLUS
+  UNDISCLOSED
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  TEAM_LEAD
+  PROJECT_MANAGER
+  TEAM_MEMBER
+  QA_REVIEWER
+  EDITOR
+  VIEWER
+}
+
+// -----------------------------------------------------------------------------
+// Project & Portfolio Models
+// -----------------------------------------------------------------------------
+
+model Project {
+  id                String             @id @default(cuid())
+  slug              String             @unique
+  type              ProjectType
+  developmentStatus DevelopmentStatus  @default(BUILDING)
+  publicationStatus PublicationStatus  @default(DRAFT)
+  ownershipType     OwnershipType
+  sadeemRole        String
+  partnershipStatus PartnershipStatus  @default(NOT_APPLICABLE)
+  featured          Boolean            @default(false)
+  displayOrder      Int                @default(0)
+  accentColor       String?
+  year              Int?
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  publishedAt       DateTime?
+
+  // Relations
+  translations      ProjectTranslation[]
+  features          ProjectFeature[]
+  technologies      ProjectTechnology[]
+  media             ProjectMedia[]
+  memberAssignments MemberProjectAssignment[]
+  teamProjects      TeamProject[]
+  companyTasks      CompanyTask[]
+  recommendations   AdministrativeRecommendation[]
+
+  @@index([slug])
+  @@index([publicationStatus])
+  @@index([developmentStatus])
+  @@index([featured, displayOrder])
+}
+
+model ProjectTranslation {
+  id               String   @id @default(cuid())
+  projectId        String
+  locale           String   // e.g. "en", "ar"
+  
+  title            String
+  tagline          String?
+  categoryName     String
+  shortDescription String   @db.Text
+  fullDescription  String   @db.Text
+  
+  problem          String?  @db.Text
+  solution         String?  @db.Text
+  roleDescription  String?  @db.Text
+  
+  seoTitle         String?
+  seoDescription   String?  @db.Text
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, locale])
+  @@index([locale])
+}
+
+model ProjectFeature {
+  id           String                      @id @default(cuid())
+  projectId    String
+  displayOrder Int                         @default(0)
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+
+  project      Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  translations ProjectFeatureTranslation[]
+
+  @@index([projectId, displayOrder])
+}
+
+model ProjectFeatureTranslation {
+  id          String         @id @default(cuid())
+  featureId   String
+  locale      String         // "en", "ar"
+  title       String
+  description String?        @db.Text
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  feature     ProjectFeature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([featureId, locale])
+  @@index([locale])
+}
+
+model Technology {
+  id          String              @id @default(cuid())
+  slug        String              @unique
+  name        String
+  category    TechCategory        @default(OTHER)
+  icon        String?
+  description String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  projects    ProjectTechnology[]
+
+  @@index([slug])
+  @@index([category])
+}
+
+model ProjectTechnology {
+  projectId    String
+  technologyId String
+  isCore       Boolean    @default(false)
+  displayOrder Int        @default(0)
+
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, technologyId])
+  @@index([technologyId])
+}
+
+model ProjectMedia {
+  id               String                    @id @default(cuid())
+  projectId        String?
+  mediaType        MediaType                 @default(SCREENSHOT)
+  storageKey       String                    // S3/R2/GCS key or asset path
+  publicUrl        String?
+  originalFilename String?
+  mimeType         String?
+  width            Int?
+  height           Int?
+  sizeBytes        BigInt?
+  displayOrder     Int                       @default(0)
+  isCover          Boolean                   @default(false)
+  uploadedBy       String?
+  
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  project          Project?                  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  translations     ProjectMediaTranslation[]
+
+  @@index([projectId, displayOrder])
+  @@index([mediaType])
+  @@index([storageKey])
+}
+
+model ProjectMediaTranslation {
+  id        String       @id @default(cuid())
+  mediaId   String
+  locale    String       // "en", "ar"
+  altText   String?
+  caption   String?
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  media     ProjectMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaId, locale])
+  @@index([locale])
+}
+
+// -----------------------------------------------------------------------------
+// Structured Content Management Models
+// -----------------------------------------------------------------------------
+
+model ContentSection {
+  id           String               @id @default(cuid())
+  sectionKey   String               @unique // e.g. "hero", "capabilities", "dual_engine", "about"
+  name         String?
+  description  String?
+  status       PublicationStatus    @default(DRAFT)
+  publishedAt  DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  translations ContentTranslation[]
+
+  @@index([sectionKey])
+  @@index([status])
+}
+
+model ContentTranslation {
+  id               String            @id @default(cuid())
+  sectionId        String
+  locale           String            // "en", "ar"
+  status           PublicationStatus @default(DRAFT)
+  draftContent     Json              // Active draft edited in admin
+  publishedContent Json?             // Approved published content visible to public
+  publishedAt      DateTime?
+  publishedBy      String?
+  updatedBy        String?
+
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  section          ContentSection    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, locale])
+  @@index([locale])
+  @@index([status])
+}
+
+model SiteSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}
+
+// -----------------------------------------------------------------------------
+// Inquiries & Studio CRM
+// -----------------------------------------------------------------------------
+
+model Inquiry {
+  id                  String            @id @default(cuid())
+  inquiryType         InquiryType       @default(GENERAL)
+  status              InquiryStatus     @default(NEW)
+  
+  // Submitter details
+  name                String
+  email               String
+  company             String?
+  contactChannel      ContactChannel    @default(EMAIL)
+  phoneOrHandle       String?
+  locale              String            @default("en") // "en", "ar"
+
+  // Business Project specific fields (Path A: Start a Project)
+  projectCategory     ProjectCategory?
+  problemStatement    String?           @db.Text
+  desiredOutcome      String?           @db.Text
+  expectedTimeline    ExpectedTimeline?
+  budgetRange         BudgetRange?      @default(UNDISCLOSED)
+
+  // Venture Pitch specific fields (Path B: Pitch an Idea)
+  ideaName            String?
+  targetAudience      String?           @db.Text
+  ventureStage        VentureStage?
+  founderExpertise    String?           @db.Text
+  expectedInvolvement String?           @db.Text
+  existingResources   String?           @db.Text
+
+  // Common message / notes
+  message             String?           @db.Text
+  sourceRoute         String?           // e.g. "/start-project", "/pitch-idea", "/#contact"
+
+  // Privacy & Consent Record
+  consentGiven        Boolean           @default(true)
+  consentVersion      String            @default("v1.0-2026")
+  consentGivenAt      DateTime          @default(now())
+  ipAddress           String?
+
+  // Internal CRM / Administrative management (strictly separated from public content)
+  internalNotes       String?           @db.Text
+  assignedToId        String?
+  assignedTo          AdminUser?        @relation("AssignedInquiries", fields: [assignedToId], references: [id], onDelete: SetNull)
+  reviewedAt          DateTime?
+  closedAt            DateTime?
+  followUpDate        DateTime?
+
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([inquiryType])
+  @@index([status])
+  @@index([email])
+  @@index([assignedToId])
+  @@index([createdAt])
+}
+
+// -----------------------------------------------------------------------------
+// Administrative Foundation & Audit Log
+// -----------------------------------------------------------------------------
+
+model AdminUser {
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  passwordHash       String
+  name               String
+  role               AdminRole      @default(EDITOR)
+  isActive           Boolean        @default(true)
+  tokenVersion       Int            @default(1)
+  lastLoginAt        DateTime?
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  auditLogs             AuditLog[]
+  revokedTokens         RevokedToken[]
+  assignedInquiries     Inquiry[]                      @relation("AssignedInquiries")
+  companyMemberId       String?                        @unique
+  companyMember         CompanyMember?                 @relation(fields: [companyMemberId], references: [id], onDelete: SetNull)
+  createdTasks          CompanyTask[]                  @relation("CreatedTasks")
+  authorRecommendations AdministrativeRecommendation[] @relation("AuthorRecommendations")
+  sentInvitations       MemberInvitation[]             @relation("SentInvitations")
+  notifications         CompanyNotification[]          @relation("AdminNotifications")
+  taskComments          TaskComment[]
+  deliverables          TaskDeliverable[]
+
+  @@index([email])
+}
+
+model RevokedToken {
+  id        String     @id @default(cuid())
+  jti       String     @unique
+  userId    String?
+  reason    String?    // e.g. "LOGOUT", "REVOCATION"
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+
+  user      AdminUser? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([jti])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String     @id @default(cuid())
+  userId     String?
+  action     String     // e.g. "PROJECT_CREATE", "PROJECT_UPDATE", "SETTING_UPDATE"
+  entityType String     // e.g. "Project", "SiteSetting"
+  entityId   String?
+  details    Json?
+  createdAt  DateTime   @default(now())
+
+  user       AdminUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// -----------------------------------------------------------------------------
+// Company Management System Enums
+// -----------------------------------------------------------------------------
+
+enum MembershipType {
+  EMPLOYEE
+  PARTNER
+  COLLABORATOR
+  INTERN
+}
+
+enum MemberStatus {
+  PENDING_INVITATION
+  INVITED
+  ACCEPTED
+  APPROVED
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum TeamRole {
+  LEAD
+  MEMBER
+  REVIEWER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REVOKED
+}
+
+enum EmailDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  BLOCKED_CONFIGURATION
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum RecommendationType {
+  GUIDANCE
+  IMPROVEMENT
+  TRAINING
+  PROCESS
+  DIRECTION
+  FOLLOW_UP
+}
+
+enum RecommendationStatus {
+  PROPOSED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  ARCHIVED
+}
+
+enum RecommendationVisibility {
+  PRIVATE_MANAGEMENT
+  SHARED_WITH_MEMBER
+  TEAM_VISIBLE
+}
+
+enum CompanyNotificationType {
+  INVITATION_ACCEPTED
+  MEMBER_APPROVED
+  ACCOUNT_ACTIVATED
+  TASK_ASSIGNED
+  TASK_STATUS_CHANGED
+  TASK_REVIEW_REQUESTED
+  RECOMMENDATION_ISSUED
+  SYSTEM_ALERT
+  TASK_COMMENT_MENTION
+  TASK_REVIEW_APPROVED
+  TASK_CHANGES_REQUESTED
+  TEAM_ANNOUNCEMENT
+}
+
+enum DeliverableType {
+  FIGMA_LINK
+  GITHUB_LINK
+  DOCUMENT_LINK
+  FILE_UPLOAD
+  OTHER
+}
+
+enum DeliverableStatus {
+  SUBMITTED
+  CHANGES_REQUESTED
+  APPROVED
+  SUPERSEDED
+}
+
+// -----------------------------------------------------------------------------
+// Company Management System Models
+// -----------------------------------------------------------------------------
+
+model CompanyTeam {
+  id                 String           @id @default(cuid())
+  code               String           @unique // e.g. "ANALYSIS", "DESIGN", "ENGINEERING", "MARKETING"
+  nameEn             String
+  nameAr             String
+  descriptionEn      String           @db.Text
+  descriptionAr      String           @db.Text
+  responsibilitiesEn Json             // String array
+  responsibilitiesAr Json             // String array
+  color              String?          // Hex design token e.g. "#C28E62"
+  icon               String?          // Lucide icon name
+  displayOrder       Int              @default(0)
+  isActive           Boolean          @default(true)
+
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  memberships        TeamMembership[]
+  projects           TeamProject[]
+  tasks              CompanyTask[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model CompanyMember {
+  id                      String                         @id @default(uuid())
+  employeeId              String?                        @unique
+  fullNameEn              String
+  fullNameAr              String?
+  email                   String                         @unique
+  phone                   String?
+  avatarUrl               String?
+  jobTitleEn              String
+  jobTitleAr              String?
+  membershipType          MembershipType                 @default(EMPLOYEE)
+  status                  MemberStatus                   @default(PENDING_INVITATION)
+  startDate               DateTime?
+  internalNotes           String?                        @db.Text
+
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
+
+  adminUser               AdminUser?
+  memberships             TeamMembership[]
+  projectAssignments      MemberProjectAssignment[]
+  invitations             MemberInvitation[]
+  activationTokens        AccountActivationToken[]
+  assignedTasks           CompanyTask[]                  @relation("AssignedTasks")
+  reviewedTasks           CompanyTask[]                  @relation("ReviewedTasks")
+  receivedRecommendations AdministrativeRecommendation[] @relation("TargetRecommendations")
+  notifications           CompanyNotification[]          @relation("MemberNotifications")
+  taskCollaborations      TaskCollaborator[]
+  taskComments            TaskComment[]
+  deliverables            TaskDeliverable[]
+
+  @@index([email])
+  @@index([status])
+  @@index([membershipType])
+  @@index([employeeId])
+}
+
+model TeamMembership {
+  id        String        @id @default(cuid())
+  memberId  String
+  teamId    String
+  isPrimary Boolean       @default(false)
+  teamRole  TeamRole      @default(MEMBER)
+  joinedAt  DateTime      @default(now())
+  endedAt   DateTime?
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  member    CompanyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  team      CompanyTeam   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, teamId])
+  @@index([teamId, teamRole])
+  @@index([memberId, isPrimary])
+}
+
+model MemberProjectAssignment {
+  id               String        @id @default(cuid())
+  memberId         String
+  projectId        String
+  projectRole      String?
+  responsibilities String?       @db.Text
+  assignedAt       DateTime      @default(now())
+
+  member           CompanyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, projectId])
+  @@index([projectId])
+  @@index([memberId])
+}
+
+model TeamProject {
+  id         String      @id @default(cuid())
+  teamId     String
+  projectId  String
+  assignedAt DateTime    @default(now())
+
+  team       CompanyTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, projectId])
+  @@index([projectId])
+  @@index([teamId])
+}
+
+model MemberInvitation {
+  id             String              @id @default(cuid())
+  memberId       String
+  email          String
+  tokenHash      String              @unique
+  status         InvitationStatus    @default(PENDING)
+  deliveryStatus EmailDeliveryStatus @default(PENDING)
+  expiresAt      DateTime
+  invitedById    String?
+  sentAt         DateTime?
+  acceptedAt     DateTime?
+  declinedAt     DateTime?
+  failureReason  String?
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  member         CompanyMember       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  invitedBy      AdminUser?          @relation("SentInvitations", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([tokenHash])
+}
+
+model AccountActivationToken {
+  id         String        @id @default(cuid())
+  memberId   String
+  tokenHash  String        @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  createdAt  DateTime      @default(now())
+
+  member     CompanyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@index([memberId])
+}
+
+model CompanyTask {
+  id               String             @id @default(cuid())
+  title            String
+  description      String?            @db.Text
+  priority         TaskPriority       @default(MEDIUM)
+  status           TaskStatus         @default(TODO)
+  dueDate          DateTime?
+  createdById      String?
+  assignedMemberId String?
+  reviewerMemberId String?
+  teamId           String?
+  projectId        String?
+  isAiAssisted     Boolean            @default(false)
+  aiMetadata       Json?
+  reviewRequired   Boolean            @default(false)
+  completedAt      DateTime?
+
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  createdBy        AdminUser?         @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedMember   CompanyMember?     @relation("AssignedTasks", fields: [assignedMemberId], references: [id], onDelete: SetNull)
+  reviewerMember   CompanyMember?     @relation("ReviewedTasks", fields: [reviewerMemberId], references: [id], onDelete: SetNull)
+  team             CompanyTeam?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  project          Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  history          TaskHistory[]
+  collaborators    TaskCollaborator[]
+  checklistItems   TaskChecklistItem[]
+  comments         TaskComment[]
+  deliverables     TaskDeliverable[]
+
+  @@index([status])
+  @@index([assignedMemberId])
+  @@index([teamId])
+  @@index([projectId])
+  @@index([dueDate])
+}
+
+model TaskHistory {
+  id         String       @id @default(cuid())
+  taskId     String
+  actorId    String?
+  action     String
+  fromStatus TaskStatus?
+  toStatus   TaskStatus?
+  metadata   Json?
+
+  createdAt  DateTime     @default(now())
+
+  task       CompanyTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+}
+
+model AdministrativeRecommendation {
+  id               String                   @id @default(cuid())
+  targetMemberId   String
+  authorId         String?
+  type             RecommendationType       @default(GUIDANCE)
+  text             String                   @db.Text
+  priority         TaskPriority             @default(MEDIUM)
+  status           RecommendationStatus     @default(PROPOSED)
+  visibility       RecommendationVisibility @default(SHARED_WITH_MEMBER)
+  relatedProjectId String?
+  acknowledgedAt   DateTime?
+
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  targetMember     CompanyMember            @relation("TargetRecommendations", fields: [targetMemberId], references: [id], onDelete: Cascade)
+  author           AdminUser?               @relation("AuthorRecommendations", fields: [authorId], references: [id], onDelete: SetNull)
+  relatedProject   Project?                 @relation(fields: [relatedProjectId], references: [id], onDelete: SetNull)
+
+  @@index([targetMemberId])
+  @@index([status])
+  @@index([visibility])
+}
+
+model CompanyNotification {
+  id                 String                  @id @default(cuid())
+  recipientAdminId   String?
+  recipientMemberId  String?
+  type               CompanyNotificationType
+  title              String
+  message            String                  @db.Text
+  link               String?
+  read               Boolean                 @default(false)
+  readAt             DateTime?
+  metadata           Json?
+
+  createdAt          DateTime                @default(now())
+
+  recipientAdmin     AdminUser?              @relation("AdminNotifications", fields: [recipientAdminId], references: [id], onDelete: Cascade)
+  recipientMember    CompanyMember?          @relation("MemberNotifications", fields: [recipientMemberId], references: [id], onDelete: Cascade)
+
+  @@index([recipientAdminId, read])
+  @@index([recipientMemberId, read])
+  @@index([createdAt])
+}
+
+model EmailOutbox {
+  id             String              @id @default(cuid())
+  recipientEmail String
+  subject        String
+  template       String
+  payload        Json
+  status         EmailDeliveryStatus @default(PENDING)
+  providerId     String?
+  error          String?             @db.Text
+  attempts       Int                 @default(0)
+  lastAttemptAt  DateTime?
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([status])
+  @@index([recipientEmail])
+}
+
+// -----------------------------------------------------------------------------
+// Operations Sprint Models: Collaborators, Checklists, Comments, Deliverables
+// -----------------------------------------------------------------------------
+
+model TaskCollaborator {
+  id         String        @id @default(cuid())
+  taskId     String
+  memberId   String
+  assignedAt DateTime      @default(now())
+
+  task       CompanyTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  member     CompanyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, memberId])
+  @@index([memberId])
+  @@index([taskId])
+}
+
+model TaskChecklistItem {
+  id            String       @id @default(cuid())
+  taskId        String
+  title         String
+  isCompleted   Boolean      @default(false)
+  order         Int          @default(0)
+  completedAt   DateTime?
+  completedById String?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  task          CompanyTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, order])
+}
+
+model TaskComment {
+  id             String         @id @default(cuid())
+  taskId         String
+  authorAdminId  String?
+  authorMemberId String?
+  content        String         @db.Text
+  isEdited       Boolean        @default(false)
+  editedAt       DateTime?
+  isDeleted      Boolean        @default(false)
+  deletedAt      DateTime?
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  task           CompanyTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorAdmin    AdminUser?     @relation(fields: [authorAdminId], references: [id], onDelete: SetNull)
+  authorMember   CompanyMember? @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+  @@index([authorMemberId])
+  @@index([authorAdminId])
+}
+
+model TaskDeliverable {
+  id             String            @id @default(cuid())
+  taskId         String
+  authorMemberId String?
+  authorAdminId  String?
+  title          String
+  type           DeliverableType   @default(OTHER)
+  url            String?
+  storageKey     String?
+  fileName       String?
+  fileSize       Int?
+  mimeType       String?
+  status         DeliverableStatus @default(SUBMITTED)
+  reviewNotes    String?           @db.Text
+  reviewedById   String?
+  reviewedAt     DateTime?
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  task           CompanyTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorMember   CompanyMember?    @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
+  authorAdmin    AdminUser?        @relation(fields: [authorAdminId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([authorMemberId])
+  @@index([status])
+}

@@ -1,0 +1,64 @@
+name: Sadeem CI & Release Gate
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-test:
+    name: Build, Lint & Security Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      NODE_ENV: test
+      AUTH_SECRET: "sadeem_ci_dummy_auth_secret_minimum_32_characters_long_for_test"
+      JWT_SECRET: "sadeem_ci_dummy_jwt_secret_minimum_32_characters_long_for_test"
+      EMAIL_PROVIDER: "mock"
+      EMAIL_FROM: "Sadeem CI <onboarding@sadeem.testing>"
+      DATABASE_URL: "postgresql://ci_dummy_user:ci_dummy_pass@localhost:5432/ci_dummy_db?sslmode=disable"
+      DIRECT_URL: "postgresql://ci_dummy_user:ci_dummy_pass@localhost:5432/ci_dummy_db?sslmode=disable"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Validate Prisma Schema
+        run: npx prisma validate
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: TypeScript Type Check
+        run: npx tsc -p tsconfig.json --noEmit
+
+      - name: Next.js ESLint Check
+        run: npm run lint
+
+      - name: Next.js Production Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Run Email Abstraction & Security Tests
+        run: npx tsx scripts/test-email-provider-abstraction.ts
+        env:
+          EMAIL_PROVIDER: "mock"

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
@@ -14,21 +14,22 @@ export default function Navigation() {
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     setMounted(true);
     const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
+      setScrolled(window.scrollY > 40);
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const navItems = [
-    { label: t.nav.work, href: "#work" },
-    { label: t.nav.capabilities, href: "#capabilities" },
-    { label: t.nav.studio, href: "#studio" },
-    { label: t.nav.contact, href: "#contact" },
+    { label: t.nav.work, href: "/#work" },
+    { label: t.nav.capabilities, href: "/#capabilities" },
+    { label: t.nav.studio, href: "/#studio" },
+    { label: t.nav.contact, href: "/contact" },
   ];
 
   // Handle escape key and body scroll lock
@@ -62,47 +63,57 @@ export default function Navigation() {
         animate={{ y: 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled ? "py-4 bg-background/80 backdrop-blur-md border-b border-border" : "py-6 bg-transparent"
+          scrolled ? "py-4 bg-background/85 backdrop-blur-xl border-b border-border shadow-lg" : "py-6 bg-transparent"
         }`}
       >
         <div className="container mx-auto px-6 md:px-12 flex justify-between items-center relative z-50">
-          <Link href="/" className="group flex items-center gap-2" onClick={closeMenu}>
-            <span className="text-xl font-bold tracking-tight text-foreground group-hover:text-foreground/80 transition-colors">
+          <Link href="/" className="group flex items-center gap-2.5" onClick={closeMenu}>
+            <div className="w-2.5 h-2.5 rounded-full bg-accent animate-pulse shadow-[0_0_10px_#C28E62]" />
+            <span className="text-xl font-bold tracking-tight text-foreground group-hover:text-accent transition-colors">
               Sadeem
             </span>
-            <span className="text-foreground/20">/</span>
-            <span dir="rtl" lang="ar" className="text-xl font-bold font-arabic text-foreground group-hover:text-foreground/80 transition-colors">
+            <span className="text-muted/40">/</span>
+            <span dir="rtl" lang="ar" className="text-xl font-bold font-arabic text-foreground group-hover:text-accent transition-colors">
               سديم
             </span>
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
-            <nav className="flex items-center gap-8 text-sm font-medium text-foreground/70">
+            <nav className="flex items-center gap-8 text-sm font-medium text-foreground/75">
               {navItems.map((item) => (
-                <Link key={item.label} href={item.href} className="hover:text-foreground transition-colors">
+                <Link 
+                  key={item.label} 
+                  href={item.href} 
+                  className="hover:text-accent transition-colors relative py-1 group"
+                >
                   {item.label}
+                  <span className="absolute bottom-0 left-0 w-0 h-[1.5px] bg-accent transition-all duration-300 group-hover:w-full" />
                 </Link>
               ))}
             </nav>
             
             <div className="flex items-center gap-4 border-l rtl:border-l-0 rtl:border-r border-border pl-8 rtl:pl-0 rtl:pr-8">
-              <button
+              <motion.button
                 onClick={() => setLanguage(language === "en" ? "ar" : "en")}
+                whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+                whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
                 aria-label="Toggle language"
-                className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
+                className="text-xs font-mono font-medium px-3 py-1.5 rounded border border-border hover:border-accent text-foreground hover:text-accent transition-colors"
               >
-                {language === "en" ? "عربي" : "EN"}
-              </button>
+                {language === "en" ? "العربية" : "EN"}
+              </motion.button>
               
               {mounted && (
-                <button
+                <motion.button
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  whileHover={shouldReduceMotion ? {} : { scale: 1.08, rotate: 15 }}
+                  whileTap={shouldReduceMotion ? {} : { scale: 0.92 }}
                   aria-label="Toggle theme"
-                  className="text-foreground hover:text-foreground/70 transition-colors flex items-center justify-center"
+                  className="p-2 rounded border border-border hover:border-accent text-foreground hover:text-accent transition-colors flex items-center justify-center"
                 >
-                  {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
+                  {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                </motion.button>
               )}
             </div>
           </div>
@@ -112,12 +123,12 @@ export default function Navigation() {
             onClick={toggleMenu}
             aria-expanded={mobileMenuOpen}
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            className="md:hidden text-foreground p-2 -mr-2 relative z-50 focus:outline-none focus-visible:ring-1 focus-visible:ring-foreground/50"
+            className="md:hidden text-foreground p-2 -mr-2 relative z-50 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
           >
             <div className="w-6 h-5 relative flex flex-col justify-between">
               <span
                 className={`w-full h-[2px] bg-foreground transition-all duration-300 origin-left ${
-                  mobileMenuOpen ? "rotate-45 translate-x-[2px] -translate-y-[1px]" : ""
+                  mobileMenuOpen ? "rotate-45 translate-x-[2px] -translate-y-[1px] bg-accent" : ""
                 }`}
               />
               <span
@@ -127,7 +138,7 @@ export default function Navigation() {
               />
               <span
                 className={`w-full h-[2px] bg-foreground transition-all duration-300 origin-left ${
-                  mobileMenuOpen ? "-rotate-45 translate-x-[2px] translate-y-[1px]" : ""
+                  mobileMenuOpen ? "-rotate-45 translate-x-[2px] translate-y-[1px] bg-accent" : ""
                 }`}
               />
             </div>
@@ -143,7 +154,7 @@ export default function Navigation() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 z-40 bg-background/95 backdrop-blur-xl flex flex-col justify-center items-center md:hidden"
+            className="fixed inset-0 z-40 bg-background/98 backdrop-blur-2xl flex flex-col justify-center items-center md:hidden"
           >
             <nav className="flex flex-col items-center gap-8 mb-12">
               {navItems.map((item, i) => (
@@ -157,7 +168,7 @@ export default function Navigation() {
                   <Link
                     href={item.href}
                     onClick={closeMenu}
-                    className="text-3xl font-bold tracking-tight text-foreground hover:text-foreground/70 transition-colors"
+                    className="text-3xl font-bold tracking-tight text-foreground hover:text-accent transition-colors"
                   >
                     {item.label}
                   </Link>
@@ -169,25 +180,29 @@ export default function Navigation() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.4 }}
-              className="flex items-center gap-8"
+              className="flex items-center gap-6"
             >
-              <button
+              <motion.button
                 onClick={() => {
                   setLanguage(language === "en" ? "ar" : "en");
                 }}
-                className="text-lg font-medium text-foreground hover:text-foreground/70 transition-colors"
+                whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+                whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+                className="text-sm font-mono px-4 py-2 rounded-lg border border-border hover:border-accent text-foreground hover:text-accent transition-colors"
               >
-                {language === "en" ? "عربي" : "EN"}
-              </button>
+                {language === "en" ? "العربية" : "English"}
+              </motion.button>
               
               {mounted && (
-                <button
+                <motion.button
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  whileHover={shouldReduceMotion ? {} : { scale: 1.08, rotate: 15 }}
+                  whileTap={shouldReduceMotion ? {} : { scale: 0.92 }}
                   aria-label="Toggle theme"
-                  className="text-foreground hover:text-foreground/70 transition-colors flex items-center justify-center p-2 border border-border rounded-full"
+                  className="text-foreground hover:text-accent transition-colors flex items-center justify-center p-2.5 border border-border hover:border-accent rounded-lg"
                 >
-                  {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-                </button>
+                  {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+                </motion.button>
               )}
             </motion.div>
             
@@ -197,6 +212,7 @@ export default function Navigation() {
               transition={{ delay: 0.3, duration: 0.4 }}
               className="absolute bottom-12 flex items-center gap-2"
             >
+              <div className="w-2 h-2 rounded-full bg-accent" />
               <span className="text-sm font-bold tracking-tight text-foreground/50">
                 Sadeem
               </span>
